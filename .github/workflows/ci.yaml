@@ -49,4 +49,8 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run pytest -v
+      - run: uv run pytest -v --cov --cov-report=term --cov-report=xml
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
