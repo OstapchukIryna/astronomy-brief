@@ -7,6 +7,7 @@ authors = [{ name = "Iryna Ostapchuk", email = "Blue.hunde@gmail.com" }]
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.0",
+    "beautifulsoup4>=4.15.0",
     "fastapi>=0.143.0",
     "httpx>=0.28.1",
     "openai>=3.29.0",
@@ -37,6 +38,7 @@ target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
