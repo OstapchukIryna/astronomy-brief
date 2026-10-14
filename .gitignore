@@ -13,3 +13,8 @@ wheels/
 
 .ruff_cache/
 .pytest_cache/
+
+# Test coverage
+.coverage
+coverage.xml
+htmlcov/
