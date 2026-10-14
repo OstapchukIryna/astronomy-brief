@@ -3,8 +3,8 @@
 
 
 [![CI](https://github.com/OstapchukIryna/astronomy-brief/actions/workflows/ci.yaml/badge.svg)](https://github.com/OstapchukIryna/astronomy-brief/actions/workflows/ci.yaml)
-![Python](https://img.shields.io/badge/python-3.14-blue)
 [![codecov](https://codecov.io/gh/OstapchukIryna/astronomy-brief/branch/main/graph/badge.svg)](https://codecov.io/gh/OstapchukIryna/astronomy-brief)
+![Python](https://img.shields.io/badge/python-3.14-blue)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 Every day NASA publishes an astronomy photo with a short astronomer's explanation, that are great, but often hard to follow if you are not an expert in the topic.
@@ -127,6 +127,7 @@ app/
 ├── services/        # use cases and transaction boundaries
 ├── repositories/    # database access
 ├── clients/         # external APIs (NASA, LLM providers)
+├── domain/          # core types and interfaces, no framework code
 ├── models/          # SQLAlchemy models
 ├── schemas/         # Pydantic request/response schemas
 ├── prompts/         # LLM prompt templates
