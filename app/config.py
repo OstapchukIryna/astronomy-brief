@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     nasa_base_url: HttpUrl = HttpUrl("https://api.nasa.gov/planetary/apod")
     http_timeout_seconds: float = 10.0
 
-    llm_provider: Literal["openai", "ollama"] = "openai"
+    llm_provider: Literal["openai", "ollama"] = "ollama"
     llm_model: str
     openai_api_key: SecretStr | None = None
     ollama_base_url: HttpUrl = HttpUrl("http://localhost:11434/v1")
