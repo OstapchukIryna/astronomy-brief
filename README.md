@@ -29,7 +29,7 @@ FastAPI, async SQLAlchemy with PostgreSQL, Pydantic, httpx, Ollama (or any OpenA
 
 ## Architecture
 
-The code is split into layers, and each layer only can reach the next one down.
+The code is split into separate layers.
 
 ```mermaid
 flowchart LR
@@ -41,25 +41,45 @@ flowchart LR
         job[Prefetch command<br/>planned, optional]
         svc[Brief service<br/>use cases, transactions]
         repo[Repositories]
-        nasa[NASA client<br/>anti-corruption layer]
+        apod[APOD source<br/>API/archive]
         llm[LLM client]
     end
 
     api --> svc
     job --> svc
     svc --> repo
-    svc --> nasa
+    svc --> apod
     svc --> llm
     repo --> db[(PostgreSQL)]
-    nasa -->|HTTPS| apod[[NASA APOD API]]
+    apod -->|HTTPS| nasa[[NASA:<br/>APOD API, APOD archive]]
     llm -->|OpenAI-compatible API| ollama[[Ollama<br/>local model]]
 ```
 
 Routers deal only with HTTP and check the users' input.
+The service layer contains business-logic.
+NASA and the LLM use their own clients. Each client converts data the outside API returns into the app's-needed types.
 
-The service layer contains business-logic. With everything goes through it, the planned prefetch command can reuse it without any changes.
+### Archive Desicion
 
-NASA and the LLM are only reachable through their own clients. A client converts data the outside API returns into the app's-needed types.
+NASA's official APOD API currently returns placeholder data for every date. The app then has two sources coming:
+
+```mermaid
+flowchart LR
+    svc[BriefService] --> fb[FallbackApodSource]
+    fb -->|first| api[Official API client<br/>rejects placeholder data]
+    fb -->|second| arc[Archive client<br/>follows the redirect, parses the article]
+    api --> nasaapi[[api.nasa.gov]]
+    arc --> nasaarc[[apod.nasa.gov → science.nasa.gov]]
+```
+
+When a source fails, the app answers:
+
+| Fallback | Status |
+|---|---|
+| no picture for this date | 404 |
+| NASA is down, slow or rate-limiting | 503 |
+| NASA answered with something can't be useful| 502 |
+
 
 ### Lazy generation
 
@@ -123,16 +143,16 @@ Then open http://localhost:8000/docs.
 
 ```
 app/
-├── api/routers/     # HTTP layer: request/response, status codes
-├── services/        # use cases and transaction boundaries
-├── repositories/    # database access
-├── clients/         # external APIs (NASA, LLM providers)
-├── domain/          # core types and interfaces, no framework code
+├── api/routers/     # HTTP with request/response, status codes
+├── services/        # the actual logic and transactions
+├── repositories/    # database queries
+├── clients/         # NASA and LLM clients
+├── domain/          # core types, error and interfaces
 ├── models/          # SQLAlchemy models
 ├── schemas/         # Pydantic request/response schemas
-├── prompts/         # LLM prompt templates
+├── prompts/         # prompt templates for LLM
 ├── config.py        # settings from environment
 ├── database.py      # engine, sessions, DB dependency
-└── main.py          # app factory and lifespan
-tests/               # mirrors app/ structure
+└── main.py          # app setup
+tests/               # same layout as app/
 ```
