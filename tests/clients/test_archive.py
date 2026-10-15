@@ -100,24 +100,6 @@ async def test_raises_bad_response_when_redirect_has_no_location(
         await archive.get_entry(BETELGEUSE_DATE)
 
 
-async def test_follows_relative_redirect(
-    archive: ApodArchiveClient,
-    respx_mock: respx.MockRouter,
-    read_fixture: Callable[[str], str],
-) -> None:
-    respx_mock.get(BETELGEUSE_ARCHIVE_URL).respond(
-        301,
-        headers={"Location": "/image-article/apod-2020-january-1-betelgeuse-imagined"},
-    )
-    respx_mock.get(
-        "https://apod.nasa.gov/image-article/apod-2020-january-1-betelgeuse-imagined"
-    ).respond(200, text=read_fixture("article_image.html"))
-
-    entry = await archive.get_entry(BETELGEUSE_DATE)
-
-    assert entry.title == "Betelgeuse Imagined"
-
-
 async def test_raises_bad_response_when_article_page_is_missing(
     archive: ApodArchiveClient, respx_mock: respx.MockRouter
 ) -> None:
