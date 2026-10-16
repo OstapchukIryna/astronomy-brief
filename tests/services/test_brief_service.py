@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry, ApodNotFoundError, MediaType
+from app.domain.dates import InvalidApodDateError
 from app.repositories.brief import BriefRepository
 from app.services.brief import BriefService
 from tests.fakes import FakeSource
@@ -48,6 +49,17 @@ async def test_stores_nothing_when_source_fails(session: AsyncSession) -> None:
         await service.get_or_create(DATE)
 
     assert await BriefRepository(session).get_by_date(DATE) is None
+
+
+async def test_rejects_future_date_without_calling_source(
+    session: AsyncSession,
+) -> None:
+    source = FakeSource(ENTRY)
+
+    with pytest.raises(InvalidApodDateError):
+        await BriefService(session, source).get_or_create(dt.date(2100, 1, 1))
+
+    assert source.calls == 0
 
 
 class RacingSource:
