@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [{ name = "Iryna Ostapchuk", email = "Blue.hunde@gmail.com" }]
 requires-python = ">=3.14"
 dependencies = [
-    "alembic>=1.20.0",
+    "alembic[tz]>=1.20.0",
     "beautifulsoup4>=4.15.0",
     "fastapi>=0.143.0",
     "httpx>=0.28.1",
