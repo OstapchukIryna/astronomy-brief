@@ -16,7 +16,7 @@ This API takes a day's picture and builds a small brief around it with the origi
 | Feature | Status |
 |---|---|
 | Health checks | ✅ done |
-| Get a day's APOD with image metadata and the original explanation | 🚧 planned |
+| Get a day's APOD with image metadata and the original explanation | ✅ done |
 | Beginner-friendly explanation | 🚧 planned |
 | 3–5 key facts | 🚧 planned |
 | Follow-up questions about the topic | 🚧 planned |
@@ -38,8 +38,8 @@ flowchart LR
 
     subgraph app [FastAPI application]
         api[API routers<br/>input validation, HTTP errors]
-        job[Prefetch command<br/>planned, optional]
-        svc[Brief service<br/>use cases, transactions]
+        job[Prefetch command<br/>optional]
+        svc[Brief service<br/>business logic]
         repo[Repositories]
         apod[APOD source<br/>API/archive]
         llm[LLM client]
@@ -72,18 +72,10 @@ flowchart LR
     arc --> nasaarc[[apod.nasa.gov → science.nasa.gov]]
 ```
 
-When a source fails, the app answers:
-
-| Fallback | Status |
-|---|---|
-| no picture for this date | 404 |
-| NASA is down, slow or rate-limiting | 503 |
-| NASA answered with something can't be useful| 502 |
-
 
 ### Lazy generation
 
-Each part of a brief is generated on first request:
+Each part of a brief is generated lazy:
 
 ```mermaid
 sequenceDiagram
@@ -126,6 +118,7 @@ cp .env.example .env         # add your NASA key and the model name
 docker compose up -d
 ollama pull <model>
 uv sync
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
@@ -135,8 +128,14 @@ Then open http://localhost:8000/docs.
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/health` | Liveness: the process is up |
-| `GET` | `/health/ready` | Readiness: the database is reachable (or `503`) |
+| `GET` | `/health` | The app is running |
+| `GET` | `/health/ready` | The database is reachable |
+| `GET` | `/briefs/{date}` | Returns the APOD for a date (`YYYY-MM-DD`) |
+
+```bash
+curl http://localhost:8000/briefs/2020-01-01
+```
+
 
 
 ## Project structure

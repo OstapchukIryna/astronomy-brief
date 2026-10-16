@@ -20,7 +20,6 @@ class Settings(BaseSettings):
 
     database_url: SecretStr
     nasa_api_key: SecretStr = SecretStr("DEMO_KEY")
-    nasa_base_url: HttpUrl = HttpUrl("https://api.nasa.gov/planetary/apod")
     http_timeout_seconds: float = 10.0
 
     llm_provider: Literal["openai", "ollama"] = "ollama"
