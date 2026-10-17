@@ -66,3 +66,15 @@ def test_hd_url_is_optional_for_image_without_link() -> None:
     entry = parse_article(html, expected_date=DATE)
 
     assert entry.hd_url is None
+
+
+def test_ignores_incomplete_metadata_rows() -> None:
+    html = make_article().replace(
+        '<tr class="media-detail-hero__meta-row"><th>Date</th>',
+        '<tr class="media-detail-hero__meta-row"><th>Note</th></tr>'
+        '<tr class="media-detail-hero__meta-row"><th>Date</th>',
+    )
+
+    entry = parse_article(html, expected_date=DATE)
+
+    assert entry.date == DATE

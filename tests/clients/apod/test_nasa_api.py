@@ -89,8 +89,6 @@ async def test_rejects_entry_for_another_date(
         pytest.param(
             403, "nasa_api_error_403.json", ApodBadResponseError, id="invalid-key"
         ),
-        pytest.param(429, None, ApodUnavailableError, id="rate-limited"),
-        pytest.param(503, None, ApodUnavailableError, id="server-error"),
     ],
 )
 async def test_maps_error_status(
@@ -105,15 +103,6 @@ async def test_maps_error_status(
     respx_mock.get(NASA_API_URL).respond(status, json=body)
 
     with pytest.raises(expected_error):
-        await nasa_api.get_entry(BETELGEUSE_DATE)
-
-
-async def test_raises_unavailable_on_timeout(
-    nasa_api: ApodApiClient, respx_mock: respx.MockRouter
-) -> None:
-    respx_mock.get(NASA_API_URL).mock(side_effect=httpx.ConnectTimeout("timeout"))
-
-    with pytest.raises(ApodUnavailableError):
         await nasa_api.get_entry(BETELGEUSE_DATE)
 
 

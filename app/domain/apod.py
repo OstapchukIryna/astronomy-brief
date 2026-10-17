@@ -38,4 +38,10 @@ class ApodBadResponseError(ApodError):
 
 
 class ApodSource(Protocol):
-    async def get_entry(self, date: dt.date) -> ApodEntry: ...
+    async def get_entry(self, date: dt.date) -> ApodEntry:
+        """Return the APOD entry for exactly this date.
+
+        Raise ApodNotFoundError, ApodUnavailableError or ApodBadResponseError
+        instead of returning an entry for another date.
+        """
+        ...

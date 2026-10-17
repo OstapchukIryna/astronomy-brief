@@ -47,8 +47,8 @@ _GENERATED_RESPONSES: Responses = {
 @router.get("/{date}", responses=_APOD_RESPONSES)
 async def get_brief(date: dt.date, service: BriefServiceDep) -> BriefResponse:
     """Return the APOD brief for the given date. The date must be between 1995-06-16 and today in US Eastern time."""
-    brief = await service.get_or_create(date)
-    return BriefResponse.model_validate(brief)
+    entry = await service.get_entry(date)
+    return BriefResponse.model_validate(entry)
 
 
 @router.get("/{date}/explanation", responses=_GENERATED_RESPONSES)
