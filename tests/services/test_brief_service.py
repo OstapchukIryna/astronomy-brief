@@ -29,7 +29,7 @@ async def test_returns_stored_brief_without_calling_source(
     await BriefRepository(session).insert_if_absent(ENTRY)
     source = FakeSource()
 
-    brief = await BriefService(session, source, FakeLlm()).get_or_create(DATE)
+    brief = await BriefService(session, source, FakeLlm()).get_entry(DATE)
 
     assert brief.title == ENTRY.title
     assert source.calls == 0
@@ -38,7 +38,7 @@ async def test_returns_stored_brief_without_calling_source(
 async def test_fetches_and_stores_missing_brief(session: AsyncSession) -> None:
     source = FakeSource()
 
-    brief = await BriefService(session, source, FakeLlm()).get_or_create(DATE)
+    brief = await BriefService(session, source, FakeLlm()).get_entry(DATE)
 
     assert brief.title == ENTRY.title
     assert source.calls == 1
@@ -51,7 +51,7 @@ async def test_stores_nothing_when_source_fails(session: AsyncSession) -> None:
     )
 
     with pytest.raises(ApodNotFoundError):
-        await service.get_or_create(DATE)
+        await service.get_entry(DATE)
 
     assert await BriefRepository(session).get_by_date(DATE) is None
 
@@ -62,9 +62,7 @@ async def test_rejects_future_date_without_calling_source(
     source = FakeSource()
 
     with pytest.raises(InvalidApodDateError):
-        await BriefService(session, source, FakeLlm()).get_or_create(
-            dt.date(2100, 1, 1)
-        )
+        await BriefService(session, source, FakeLlm()).get_entry(dt.date(2100, 1, 1))
 
     assert source.calls == 0
 
@@ -85,7 +83,7 @@ class RacingSource:
 async def test_returns_brief_saved_by_concurrent_request(session: AsyncSession) -> None:
     service = BriefService(session, RacingSource(session), FakeLlm())
 
-    brief = await service.get_or_create(DATE)
+    brief = await service.get_entry(DATE)
 
     assert brief.title == "Saved by another request"
 
