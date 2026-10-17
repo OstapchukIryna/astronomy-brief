@@ -9,6 +9,7 @@ from app.prompts import explanation, facts
 
 MIN_FACTS = 3
 MAX_FACTS = 5
+MAX_ERROR_DETAIL = 200
 
 
 class _Message(BaseModel):
@@ -27,6 +28,16 @@ class _Completion(BaseModel):
 
 class _FactsAnswer(BaseModel):
     facts: list[str] = Field(min_length=1)
+
+
+class _ErrorInfo(BaseModel):
+    message: str
+
+
+class _ErrorBody(BaseModel):
+    """The error body of an OpenAI-compatible API."""
+
+    error: _ErrorInfo
 
 
 class OpenAICompatibleLlmClient:
@@ -56,7 +67,7 @@ class OpenAICompatibleLlmClient:
         return text
 
     async def extract_facts(self, entry: ApodEntry) -> list[str]:
-        """Return 3 to 5 distinct facts taken from the APOD text."""
+        """ "Return 3 to 5 distinct interesting facts about the APOD's topic."""
         content = await self._complete(
             facts.SYSTEM,
             facts.user_message(entry.title, entry.explanation),
@@ -82,7 +93,10 @@ class OpenAICompatibleLlmClient:
         return result[:MAX_FACTS]
 
     async def _complete(
-        self, system: str, user: str, response_format: dict[str, object] | None = None
+        self,
+        system: str,
+        user: str,
+        response_format: dict[str, object] | None = None,
     ) -> str:
         """Send one chat request and return the answer text."""
         body: dict[str, object] = {
@@ -107,9 +121,13 @@ class OpenAICompatibleLlmClient:
             response.is_server_error
             or response.status_code == httpx.codes.TOO_MANY_REQUESTS
         ):
-            raise LlmUnavailableError(f"LLM returned {response.status_code}")
+            raise LlmUnavailableError(
+                f"LLM returned {response.status_code}{_error_detail(response)}"
+            )
         if response.status_code != httpx.codes.OK:
-            raise LlmBadResponseError(f"LLM returned {response.status_code}")
+            raise LlmBadResponseError(
+                f"LLM returned {response.status_code}{_error_detail(response)}"
+            )
         try:
             completion = _Completion.model_validate_json(response.content)
         except ValidationError as error:
@@ -130,3 +148,14 @@ def _distinct(items: list[str]) -> list[str]:
             seen.add(key)
             result.append(item)
     return result
+
+
+def _error_detail(response: httpx.Response) -> str:
+    """Return the provider's error message to add to ours."""
+    if response.status_code in (httpx.codes.UNAUTHORIZED, httpx.codes.FORBIDDEN):
+        return ""
+    try:
+        message = _ErrorBody.model_validate_json(response.content).error.message
+    except ValidationError:
+        return ""
+    return f": {message[:MAX_ERROR_DETAIL]}"

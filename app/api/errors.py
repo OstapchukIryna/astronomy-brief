@@ -10,17 +10,20 @@ from app.domain.apod import (
     ApodUnavailableError,
 )
 from app.domain.dates import InvalidApodDateError
+from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 
 logger = logging.getLogger(__name__)
 
 Handler = Callable[[Request, Exception], Awaitable[JSONResponse]]
 
 
-def _source_error_handler(status_code: int, detail: str) -> Handler:
+def _external_error_handler(status_code: int, detail: str) -> Handler:
     """Build a handler that hides the internal message from the client and logs it."""
 
     async def handle(request: Request, error: Exception) -> JSONResponse:
-        logger.warning("APOD source failed for %s: %s", request.url.path, error)
+        logger.warning(
+            "%s failed: %s: %s", request.url.path, type(error).__name__, error
+        )
         return JSONResponse(status_code=status_code, content={"detail": detail})
 
     return handle
@@ -36,21 +39,36 @@ async def _handle_invalid_date(request: Request, error: Exception) -> JSONRespon
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         ApodNotFoundError,
-        _source_error_handler(
+        _external_error_handler(
             status.HTTP_404_NOT_FOUND, "There is no APOD for this date."
         ),
     )
     app.add_exception_handler(
         ApodUnavailableError,
-        _source_error_handler(
+        _external_error_handler(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "NASA is not available right now. Try again later.",
         ),
     )
     app.add_exception_handler(
         ApodBadResponseError,
-        _source_error_handler(
+        _external_error_handler(
             status.HTTP_502_BAD_GATEWAY, "NASA returned data we couldn't use."
         ),
     )
+    app.add_exception_handler(
+        LlmUnavailableError,
+        _external_error_handler(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "The language model is not available right now. Try again later.",
+        ),
+    )
+    app.add_exception_handler(
+        LlmBadResponseError,
+        _external_error_handler(
+            status.HTTP_502_BAD_GATEWAY,
+            "The language model returned an answer we couldn't use.",
+        ),
+    )
+
     app.add_exception_handler(InvalidApodDateError, _handle_invalid_date)

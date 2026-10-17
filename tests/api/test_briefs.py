@@ -13,7 +13,8 @@ from app.domain.apod import (
     ApodSource,
     ApodUnavailableError,
 )
-from tests.fakes import ENTRY, FakeLlm, FakeSource
+from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
+from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 
 @pytest.fixture
@@ -24,6 +25,18 @@ def use_source(app: FastAPI, session: AsyncSession) -> Callable[[ApodSource], No
     def _use(source: ApodSource) -> None:
         app.dependency_overrides[get_apod_source] = lambda: source
         app.dependency_overrides[get_llm] = lambda: FakeLlm()
+
+    return _use
+
+
+@pytest.fixture
+def use_llm(
+    app: FastAPI, use_source: Callable[[ApodSource], None]
+) -> Callable[[LlmClient], None]:
+    """Make the app use the given LLM."""
+
+    def _use(llm: LlmClient) -> None:
+        app.dependency_overrides[get_llm] = lambda: llm
 
     return _use
 
@@ -54,7 +67,7 @@ async def test_rejects_malformed_date(
 
     response = await client.get("/briefs/2020-13-45")
 
-    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 @pytest.mark.parametrize(
@@ -106,3 +119,68 @@ async def test_rejects_future_date_without_calling_source(
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert source.calls == 0
+
+
+async def test_returns_explanation_for_date(
+    client: httpx.AsyncClient,
+    use_source: Callable[[ApodSource], None],
+    use_llm: Callable[[LlmClient], None],
+) -> None:
+    use_source(FakeSource())
+    use_llm(FakeLlm(explanation="A star is fading."))
+
+    response = await client.get("/briefs/2020-01-01/explanation")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"date": "2020-01-01", "explanation": "A star is fading."}
+
+
+async def test_returns_facts_for_date(
+    client: httpx.AsyncClient,
+    use_source: Callable[[ApodSource], None],
+    use_llm: Callable[[LlmClient], None],
+) -> None:
+    use_source(FakeSource())
+    use_llm(FakeLlm())
+
+    response = await client.get("/briefs/2020-01-01/facts")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {"date": "2020-01-01", "facts": FACTS}
+
+
+@pytest.mark.parametrize("path", ["explanation", "facts"])
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        pytest.param(LlmUnavailableError("LLM request failed"), 503, id="unavailable"),
+        pytest.param(LlmBadResponseError("empty answer"), 502, id="bad-response"),
+    ],
+)
+async def test_maps_llm_errors_to_status(
+    client: httpx.AsyncClient,
+    use_source: Callable[[ApodSource], None],
+    use_llm: Callable[[LlmClient], None],
+    path: str,
+    error: Exception,
+    expected_status: int,
+) -> None:
+    use_source(FakeSource())
+    use_llm(FakeLlm(explanation=error, facts=error))
+
+    response = await client.get(f"/briefs/2020-01-01/{path}")
+
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize("path", ["explanation", "facts"])
+async def test_maps_source_errors_on_generated_endpoints(
+    client: httpx.AsyncClient,
+    use_source: Callable[[ApodSource], None],
+    path: str,
+) -> None:
+    use_source(FakeSource(ApodNotFoundError("No article")))
+
+    response = await client.get(f"/briefs/2020-01-01/{path}")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND

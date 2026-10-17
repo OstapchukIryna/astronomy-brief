@@ -15,3 +15,13 @@ class BriefResponse(BaseModel):
     url: str
     hd_url: str | None
     credit: str | None
+
+
+class ExplanationResponse(BaseModel):
+    date: dt.date
+    explanation: str
+
+
+class FactsResponse(BaseModel):
+    date: dt.date
+    facts: list[str]

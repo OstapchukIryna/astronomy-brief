@@ -197,3 +197,38 @@ async def test_rejects_malformed_completion(
 
     with pytest.raises(LlmBadResponseError):
         await llm.explain(ENTRY)
+
+
+async def test_error_includes_provider_message(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(
+        400, json={"error": {"message": "model is required"}}
+    )
+
+    with pytest.raises(LlmBadResponseError, match="400: model is required"):
+        await llm.explain(ENTRY)
+
+
+async def test_error_hides_auth_error_message(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(
+        401, json={"error": {"message": "Incorrect API key provided: sk-abc***xyz"}}
+    )
+
+    with pytest.raises(LlmBadResponseError) as error:
+        await llm.explain(ENTRY)
+
+    assert str(error.value) == "LLM returned 401"
+
+
+async def test_error_without_provider_message(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(502, text="<html>Bad Gateway</html>")
+
+    with pytest.raises(LlmUnavailableError) as error:
+        await llm.explain(ENTRY)
+
+    assert str(error.value) == "LLM returned 502"
