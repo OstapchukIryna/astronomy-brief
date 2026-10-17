@@ -1,4 +1,3 @@
-import datetime as dt
 from collections.abc import Callable
 
 import httpx
@@ -6,25 +5,15 @@ import pytest
 from fastapi import FastAPI, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_apod_source
+from app.api.dependencies import get_apod_source, get_llm
 from app.database import get_session
 from app.domain.apod import (
     ApodBadResponseError,
-    ApodEntry,
     ApodNotFoundError,
     ApodSource,
     ApodUnavailableError,
-    MediaType,
 )
-from tests.fakes import FakeSource
-
-ENTRY = ApodEntry(
-    date=dt.date(2020, 1, 1),
-    title="Betelgeuse Imagined",
-    explanation="Why is Betelgeuse fading?",
-    media_type=MediaType.IMAGE,
-    url="https://example.com/betelgeuse.jpg",
-)
+from tests.fakes import ENTRY, FakeLlm, FakeSource
 
 
 @pytest.fixture
@@ -34,6 +23,7 @@ def use_source(app: FastAPI, session: AsyncSession) -> Callable[[ApodSource], No
 
     def _use(source: ApodSource) -> None:
         app.dependency_overrides[get_apod_source] = lambda: source
+        app.dependency_overrides[get_llm] = lambda: FakeLlm()
 
     return _use
 
