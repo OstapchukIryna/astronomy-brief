@@ -1,7 +1,11 @@
 # facts.py
 SYSTEM = (
-    "You extract key facts from a text about an astronomy picture. "
-    "Use only the information in the text. Do not add facts that are not in it. "
+    "You share interesting facts about the topic of an astronomy picture. "
+    "The text you are given is NASA's description of the picture. "
+    "Use it only to understand the topic. "
+    "Give facts that are not already stated in the text. "
+    "Use only well-established facts that you would find in an encyclopedia. "
+    "If you are not sure about a number, leave the number out. "
     "Return 3 to 5 facts. Each fact is one short sentence and is about something different."
 )
 

@@ -4,38 +4,41 @@ from dataclasses import replace
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.apod import ApodEntry, ApodNotFoundError, MediaType
+from app.domain.apod import ApodEntry, ApodNotFoundError
 from app.domain.dates import InvalidApodDateError
+from app.domain.llm import LlmUnavailableError
 from app.repositories.brief import BriefRepository
 from app.services.brief import BriefService
-from tests.fakes import FakeSource
+from tests.fakes import DATE, ENTRY, FACTS, FakeLlm, FakeSource
 
-DATE = dt.date(2020, 1, 1)
-ENTRY = ApodEntry(
-    date=DATE,
-    title="Betelgeuse Imagined",
-    explanation="Why is Betelgeuse fading?",
-    media_type=MediaType.IMAGE,
-    url="https://example.com/betelgeuse.jpg",
-)
+
+async def store_entry(session: AsyncSession) -> BriefRepository:
+    """Save entry and commit."""
+    briefs = BriefRepository(session)
+    await briefs.insert_if_absent(ENTRY)
+    await session.commit()
+    return briefs
+
+
+# get_or_create
 
 
 async def test_returns_stored_brief_without_calling_source(
     session: AsyncSession,
 ) -> None:
     await BriefRepository(session).insert_if_absent(ENTRY)
-    source = FakeSource(ENTRY)
+    source = FakeSource()
 
-    brief = await BriefService(session, source).get_or_create(DATE)
+    brief = await BriefService(session, source, FakeLlm()).get_or_create(DATE)
 
     assert brief.title == ENTRY.title
     assert source.calls == 0
 
 
 async def test_fetches_and_stores_missing_brief(session: AsyncSession) -> None:
-    source = FakeSource(ENTRY)
+    source = FakeSource()
 
-    brief = await BriefService(session, source).get_or_create(DATE)
+    brief = await BriefService(session, source, FakeLlm()).get_or_create(DATE)
 
     assert brief.title == ENTRY.title
     assert source.calls == 1
@@ -43,7 +46,9 @@ async def test_fetches_and_stores_missing_brief(session: AsyncSession) -> None:
 
 
 async def test_stores_nothing_when_source_fails(session: AsyncSession) -> None:
-    service = BriefService(session, FakeSource(ApodNotFoundError("No article")))
+    service = BriefService(
+        session, FakeSource(ApodNotFoundError("No article")), FakeLlm()
+    )
 
     with pytest.raises(ApodNotFoundError):
         await service.get_or_create(DATE)
@@ -54,26 +59,130 @@ async def test_stores_nothing_when_source_fails(session: AsyncSession) -> None:
 async def test_rejects_future_date_without_calling_source(
     session: AsyncSession,
 ) -> None:
-    source = FakeSource(ENTRY)
+    source = FakeSource()
 
     with pytest.raises(InvalidApodDateError):
-        await BriefService(session, source).get_or_create(dt.date(2100, 1, 1))
+        await BriefService(session, source, FakeLlm()).get_or_create(
+            dt.date(2100, 1, 1)
+        )
 
     assert source.calls == 0
 
 
 class RacingSource:
+    """Imitation of concurrent entry."""
+
     def __init__(self, session: AsyncSession) -> None:
-        self._repository = BriefRepository(session)
+        self._briefs = BriefRepository(session)
 
     async def get_entry(self, date: dt.date) -> ApodEntry:
-        await self._repository.insert_if_absent(
+        await self._briefs.insert_if_absent(
             replace(ENTRY, title="Saved by another request")
         )
         return ENTRY
 
 
 async def test_returns_brief_saved_by_concurrent_request(session: AsyncSession) -> None:
-    brief = await BriefService(session, RacingSource(session)).get_or_create(DATE)
+    service = BriefService(session, RacingSource(session), FakeLlm())
+
+    brief = await service.get_or_create(DATE)
 
     assert brief.title == "Saved by another request"
+
+
+# get_explanation
+
+
+async def test_returns_stored_explanation_without_calling_llm(
+    session: AsyncSession,
+) -> None:
+    briefs = await store_entry(session)
+    await briefs.set_explanation_if_absent(DATE, "Stored explanation")
+    await session.commit()
+    llm = FakeLlm()
+
+    text = await BriefService(session, FakeSource(), llm).get_explanation(DATE)
+
+    assert text == "Stored explanation"
+    assert llm.explain_calls == 0
+
+
+async def test_generates_and_stores_missing_explanation(session: AsyncSession) -> None:
+    llm = FakeLlm(explanation="A star is fading.")
+
+    text = await BriefService(session, FakeSource(), llm).get_explanation(DATE)
+
+    assert text == "A star is fading."
+    brief = await BriefRepository(session).get_by_date(DATE)
+    assert brief is not None
+    assert brief.simple_explanation == "A star is fading."
+
+
+async def test_stores_no_explanation_when_llm_fails(session: AsyncSession) -> None:
+    llm = FakeLlm(explanation=LlmUnavailableError("LLM is down"))
+
+    with pytest.raises(LlmUnavailableError):
+        await BriefService(session, FakeSource(), llm).get_explanation(DATE)
+
+    brief = await BriefRepository(session).get_by_date(DATE)
+    assert brief is not None
+    assert brief.simple_explanation is None
+
+
+class RacingLlm:
+    """Saves answers like a concurrent request would, then returns different ones."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._briefs = BriefRepository(session)
+
+    async def explain(self, entry: ApodEntry) -> str:
+        await self._briefs.set_explanation_if_absent(
+            entry.date, "Saved by another request"
+        )
+        return "Generated by this request"
+
+    async def extract_facts(self, entry: ApodEntry) -> list[str]:
+        await self._briefs.set_facts_if_absent(
+            entry.date, ["Saved by another request."]
+        )
+        return list(FACTS)
+
+
+async def test_returns_explanation_saved_by_concurrent_request(
+    session: AsyncSession,
+) -> None:
+    service = BriefService(session, FakeSource(), RacingLlm(session))
+
+    assert await service.get_explanation(DATE) == "Saved by another request"
+
+
+# get_facts
+
+
+async def test_returns_stored_facts_without_calling_llm(session: AsyncSession) -> None:
+    briefs = await store_entry(session)
+    await briefs.set_facts_if_absent(DATE, ["Stored fact."])
+    await session.commit()
+    llm = FakeLlm()
+
+    facts = await BriefService(session, FakeSource(), llm).get_facts(DATE)
+
+    assert facts == ["Stored fact."]
+    assert llm.facts_calls == 0
+
+
+async def test_generates_and_stores_missing_facts(session: AsyncSession) -> None:
+    facts = await BriefService(session, FakeSource(), FakeLlm()).get_facts(DATE)
+
+    assert facts == FACTS
+    brief = await BriefRepository(session).get_by_date(DATE)
+    assert brief is not None
+    assert brief.facts == FACTS
+
+
+async def test_returns_facts_saved_by_concurrent_request(
+    session: AsyncSession,
+) -> None:
+    service = BriefService(session, FakeSource(), RacingLlm(session))
+
+    assert await service.get_facts(DATE) == ["Saved by another request."]
