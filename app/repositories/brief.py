@@ -1,10 +1,11 @@
 import datetime as dt
 
-from sqlalchemy import select, update
+from sqlalchemy import func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry
+from app.domain.history import BriefSummary, HistoryFilter, HistoryPage, PageRequest
 from app.models import Brief
 
 
@@ -65,3 +66,33 @@ class BriefRepository:
             .values(facts=facts)
         )
         await self._session.execute(statement)
+
+    async def list_summaries(
+        self, history_filter: HistoryFilter, page: PageRequest
+    ) -> HistoryPage:
+        """Return one page of stored briefs that match the filter.
+
+        Without a keyword the newest briefs come first. With a keyword the
+        most similar titles come first, then the newest.
+        """
+        statement = select(Brief.date, Brief.title, Brief.media_type, Brief.url)
+        if history_filter.date_from is not None:
+            statement = statement.where(Brief.date >= history_filter.date_from)
+        if history_filter.date_to is not None:
+            statement = statement.where(Brief.date <= history_filter.date_to)
+        if history_filter.keyword is not None:
+            keyword = literal(history_filter.keyword)
+            statement = statement.where(
+                keyword.op("<%", is_comparison=True)(Brief.title)
+            ).order_by(func.word_similarity(keyword, Brief.title).desc())
+        statement = (
+            statement.order_by(Brief.date.desc())
+            .limit(page.limit + 1)  # one extra row tells whether there is a next page
+            .offset(page.offset)
+        )
+        rows = (await self._session.execute(statement)).all()
+        items = tuple(
+            BriefSummary(date=date, title=title, media_type=media_type, url=url)
+            for date, title, media_type, url in rows[: page.limit]
+        )
+        return HistoryPage(items=items, has_more=len(rows) > page.limit)

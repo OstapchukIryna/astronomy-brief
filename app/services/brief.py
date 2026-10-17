@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry, ApodSource
 from app.domain.dates import apod_today, ensure_valid_apod_date
+from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 from app.domain.llm import LlmClient
 from app.models import Brief
 from app.repositories.brief import BriefRepository, to_entry
@@ -84,3 +85,9 @@ class BriefService:
         brief = await self._briefs.get_by_date(date)
         assert brief is not None, f"Brief for {date} must exist after insert"
         return brief
+
+    async def list_history(
+        self, history_filter: HistoryFilter, page: PageRequest
+    ) -> HistoryPage:
+        """Return one page of stored briefs that match the filter."""
+        return await self._briefs.list_summaries(history_filter, page)
