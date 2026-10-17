@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator, AsyncIterator
 import httpx
 import pytest
 from fastapi import FastAPI
+from sqlalchemy import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -23,13 +24,6 @@ async def client(app: FastAPI) -> AsyncGenerator[httpx.AsyncClient]:
 
 
 @pytest.fixture
-async def database() -> AsyncIterator[Database]:
-    db = Database(get_settings().database_url.get_secret_value())
-    yield db
-    await db.dispose()
-
-
-@pytest.fixture
 async def session(database: Database) -> AsyncIterator[AsyncSession]:
     async with database.engine.connect() as connection:
         transaction = await connection.begin()
@@ -41,3 +35,23 @@ async def session(database: Database) -> AsyncIterator[AsyncSession]:
         yield session
         await session.close()
         await transaction.rollback()
+
+
+@pytest.fixture(scope="session")
+def test_database_url() -> str:
+    url = get_settings().test_database_url
+    if url is None:
+        pytest.exit("Set TEST_DATABASE_URL to run the tests", returncode=1)
+    value = url.get_secret_value()
+    if not (make_url(value).database or "").endswith("_test"):
+        pytest.exit(
+            "TEST_DATABASE_URL must point to a database ending with _test", returncode=1
+        )
+    return value
+
+
+@pytest.fixture
+async def database(test_database_url: str) -> AsyncIterator[Database]:
+    db = Database(test_database_url)
+    yield db
+    await db.dispose()
