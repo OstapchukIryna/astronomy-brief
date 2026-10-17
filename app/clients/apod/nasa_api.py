@@ -53,6 +53,10 @@ class ApodApiClient:
         data = _parse(response, date)
         if data.title == _PLACEHOLDER_TITLE:
             raise ApodBadResponseError(f"API returned placeholder data for {date}")
+        if data.date != date:
+            raise ApodBadResponseError(
+                f"API returned the entry for {data.date} instead of {date}"
+            )
 
         return ApodEntry(
             date=data.date,
