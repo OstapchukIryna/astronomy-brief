@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     database_url: SecretStr
+    test_database_url: SecretStr | None = None
+
     nasa_api_key: SecretStr = SecretStr("DEMO_KEY")
     http_timeout_seconds: float = 10.0
 

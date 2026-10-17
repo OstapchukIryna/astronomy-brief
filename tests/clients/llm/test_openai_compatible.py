@@ -1,0 +1,199 @@
+import datetime as dt
+import json
+from collections.abc import AsyncIterator
+from typing import Any
+
+import httpx
+import pytest
+import respx
+
+from app.clients.llm.openai_compatible import OpenAICompatibleLlmClient
+from app.domain.apod import ApodEntry, MediaType
+from app.domain.llm import LlmBadResponseError, LlmUnavailableError
+
+BASE_URL = "http://llm.test/v1"
+COMPLETIONS_URL = f"{BASE_URL}/chat/completions"
+ENTRY = ApodEntry(
+    date=dt.date(2020, 1, 1),
+    title="Betelgeuse Imagined",
+    explanation="Betelgeuse is only half as bright as it used to be.",
+    media_type=MediaType.IMAGE,
+    url="https://example.com/betelgeuse.jpg",
+)
+
+
+def completion(content: str | None) -> dict[str, Any]:
+    """A minimal chat completion body as an OpenAI-compatible API returns it."""
+    return {
+        "id": "chatcmpl-1",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "test-model",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": content},
+                "finish_reason": "stop",
+            }
+        ],
+    }
+
+
+@pytest.fixture
+async def llm() -> AsyncIterator[OpenAICompatibleLlmClient]:
+    async with httpx.AsyncClient() as http:
+        yield OpenAICompatibleLlmClient(
+            http,
+            base_url=BASE_URL,
+            api_key="test-key",
+            model="test-model",
+        )
+
+
+async def test_explain_returns_text(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion("  A star is fading.  ")
+    )
+
+    assert await llm.explain(ENTRY) == "A star is fading."
+
+
+async def test_explain_grounds_the_model_in_the_apod_text(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    route = respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion("A star is fading.")
+    )
+
+    await llm.explain(ENTRY)
+
+    request = route.calls.last.request
+    body = json.loads(request.content)
+    assert request.headers["Authorization"] == "Bearer test-key"
+    assert body["model"] == "test-model"
+    assert ENTRY.explanation in body["messages"][-1]["content"]
+
+
+async def test_extract_facts_returns_facts(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    facts = ["It is red.", "It is fading.", "It is 700 light years away."]
+    respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion(json.dumps({"facts": facts}))
+    )
+
+    assert await llm.extract_facts(ENTRY) == facts
+
+
+async def test_extract_facts_asks_for_json_schema(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    facts = ["It is red.", "It is fading.", "It is far."]
+    route = respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion(json.dumps({"facts": facts}))
+    )
+
+    await llm.extract_facts(ENTRY)
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["response_format"]["type"] == "json_schema"
+
+
+async def test_extract_facts_drops_repeats(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    facts = ["It is red.", "It is fading.", "it is red.", "It is far."]
+    respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion(json.dumps({"facts": facts}))
+    )
+
+    assert await llm.extract_facts(ENTRY) == [
+        "It is red.",
+        "It is fading.",
+        "It is far.",
+    ]
+
+
+async def test_extract_facts_keeps_at_most_five(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    facts = [f"Fact number {n}." for n in range(7)]
+    respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion(json.dumps({"facts": facts}))
+    )
+
+    assert len(await llm.extract_facts(ENTRY)) == 5
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("not json", id="not-json"),
+        pytest.param(json.dumps({"items": ["a", "b", "c"]}), id="wrong-shape"),
+        pytest.param(
+            json.dumps({"facts": ["Same.", "same.", "Other."]}),
+            id="too-few-after-repeats",
+        ),
+    ],
+)
+async def test_extract_facts_rejects_bad_answers(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter, content: str
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(200, json=completion(content))
+
+    with pytest.raises(LlmBadResponseError):
+        await llm.extract_facts(ENTRY)
+
+
+@pytest.mark.parametrize(
+    "content", [pytest.param(None, id="no-content"), pytest.param("   ", id="blank")]
+)
+async def test_explain_rejects_empty_answer(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter, content: str | None
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(200, json=completion(content))
+
+    with pytest.raises(LlmBadResponseError):
+        await llm.explain(ENTRY)
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_error"),
+    [
+        pytest.param(429, LlmUnavailableError, id="rate-limited"),
+        pytest.param(503, LlmUnavailableError, id="server-error"),
+        pytest.param(400, LlmBadResponseError, id="bad-request"),
+    ],
+)
+async def test_maps_error_status(
+    llm: OpenAICompatibleLlmClient,
+    respx_mock: respx.MockRouter,
+    status: int,
+    expected_error: type[Exception],
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(
+        status, json={"error": {"message": "nope"}}
+    )
+
+    with pytest.raises(expected_error):
+        await llm.explain(ENTRY)
+
+
+async def test_raises_unavailable_on_timeout(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).mock(side_effect=httpx.ReadTimeout("timeout"))
+
+    with pytest.raises(LlmUnavailableError):
+        await llm.explain(ENTRY)
+
+
+async def test_rejects_malformed_completion(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.post(COMPLETIONS_URL).respond(200, json={"choices": []})
+
+    with pytest.raises(LlmBadResponseError):
+        await llm.explain(ENTRY)
