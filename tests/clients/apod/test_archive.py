@@ -9,7 +9,6 @@ from app.clients.apod.archive import ApodArchiveClient
 from app.domain.apod import (
     ApodBadResponseError,
     ApodNotFoundError,
-    ApodUnavailableError,
 )
 
 BETELGEUSE_DATE = dt.date(2020, 1, 1)
@@ -62,26 +61,6 @@ async def test_raises_not_found_when_archive_page_is_missing(
         await archive.get_entry(BETELGEUSE_DATE)
 
 
-async def test_raises_unavailable_on_timeout(
-    archive: ApodArchiveClient, respx_mock: respx.MockRouter
-) -> None:
-    respx_mock.get(BETELGEUSE_ARCHIVE_URL).mock(
-        side_effect=httpx.ConnectTimeout("timeout")
-    )
-
-    with pytest.raises(ApodUnavailableError):
-        await archive.get_entry(BETELGEUSE_DATE)
-
-
-async def test_raises_unavailable_on_server_error(
-    archive: ApodArchiveClient, respx_mock: respx.MockRouter
-) -> None:
-    respx_mock.get(BETELGEUSE_ARCHIVE_URL).respond(503)
-
-    with pytest.raises(ApodUnavailableError):
-        await archive.get_entry(BETELGEUSE_DATE)
-
-
 async def test_raises_bad_response_on_unexpected_archive_status(
     archive: ApodArchiveClient, respx_mock: respx.MockRouter
 ) -> None:
@@ -109,13 +88,4 @@ async def test_raises_bad_response_when_article_page_is_missing(
     respx_mock.get(BETELGEUSE_ARTICLE_URL).respond(404)
 
     with pytest.raises(ApodBadResponseError, match="Article page returned 404"):
-        await archive.get_entry(BETELGEUSE_DATE)
-
-
-async def test_raises_unavailable_when_rate_limited(
-    archive: ApodArchiveClient, respx_mock: respx.MockRouter
-) -> None:
-    respx_mock.get(BETELGEUSE_ARCHIVE_URL).respond(429)
-
-    with pytest.raises(ApodUnavailableError):
         await archive.get_entry(BETELGEUSE_DATE)

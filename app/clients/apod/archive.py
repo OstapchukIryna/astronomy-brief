@@ -13,6 +13,7 @@ import datetime as dt
 import httpx
 
 from app.clients.apod.article_parser import parse_article
+from app.clients.http import send
 from app.domain.apod import (
     ApodBadResponseError,
     ApodEntry,
@@ -71,19 +72,12 @@ class ApodArchiveClient:
     async def _get(
         self, url: str | httpx.URL, *, follow_redirects: bool
     ) -> httpx.Response:
-        """Send a GET request and turn transport and server failures into ApodUnavailableError."""
-        try:
-            response = await self._http.get(url, follow_redirects=follow_redirects)
-        except httpx.TransportError as error:
-            raise ApodUnavailableError(f"Archive request failed: {url}") from error
-        if (
-            response.is_server_error
-            or response.status_code == httpx.codes.TOO_MANY_REQUESTS
-        ):
-            raise ApodUnavailableError(
-                f"Archive returned {response.status_code}: {url}"
-            )
-        return response
+        return await send(
+            lambda: self._http.get(url, follow_redirects=follow_redirects),
+            what=f"Archive request {url}",
+            unavailable=ApodUnavailableError,
+            bad_response=ApodBadResponseError,
+        )
 
 
 def _archive_page_url(date: dt.date) -> str:

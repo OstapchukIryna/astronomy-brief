@@ -8,6 +8,7 @@ import datetime as dt
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from app.clients.http import send
 from app.domain.apod import (
     ApodBadResponseError,
     ApodEntry,
@@ -69,22 +70,16 @@ class ApodApiClient:
         )
 
     async def _get(self, date: dt.date) -> httpx.Response:
-        """Request the entry and turn failures into ApodUnavailableError."""
-        try:
-            response = await self._http.get(
+        """Request the entry; the API key goes in the query, so `what` has only the date."""
+        return await send(
+            lambda: self._http.get(
                 NASA_API_URL,
                 params={"date": date.isoformat(), "api_key": self._api_key},
-            )
-        except httpx.TransportError as error:
-            raise ApodUnavailableError(f"API request failed for {date}") from error
-        if (
-            response.is_server_error
-            or response.status_code == httpx.codes.TOO_MANY_REQUESTS
-        ):
-            raise ApodUnavailableError(
-                f"API returned {response.status_code} for {date}"
-            )
-        return response
+            ),
+            what=f"API request for {date}",
+            unavailable=ApodUnavailableError,
+            bad_response=ApodBadResponseError,
+        )
 
 
 def _parse(response: httpx.Response, date: dt.date) -> _ApodResponse:

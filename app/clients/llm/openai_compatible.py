@@ -3,6 +3,7 @@
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
+from app.clients.http import send
 from app.domain.apod import ApodEntry
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 from app.prompts import explanation, facts
@@ -67,7 +68,7 @@ class OpenAICompatibleLlmClient:
         return text
 
     async def extract_facts(self, entry: ApodEntry) -> list[str]:
-        """ "Return 3 to 5 distinct interesting facts about the APOD's topic."""
+        """Return 3 to 5 distinct interesting facts about the APOD's topic."""
         content = await self._complete(
             facts.SYSTEM,
             facts.user_message(entry.title, entry.explanation),
@@ -109,21 +110,14 @@ class OpenAICompatibleLlmClient:
         }
         if response_format is not None:
             body["response_format"] = response_format
-        try:
-            response = await self._http.post(
-                self._url, json=body, headers=self._headers
-            )
-        except httpx.TransportError as error:
-            raise LlmUnavailableError(
-                f"LLM request failed: {type(error).__name__}"
-            ) from error
-        if (
-            response.is_server_error
-            or response.status_code == httpx.codes.TOO_MANY_REQUESTS
-        ):
-            raise LlmUnavailableError(
-                f"LLM returned {response.status_code}{_error_detail(response)}"
-            )
+
+        response = await send(
+            lambda: self._http.post(self._url, json=body, headers=self._headers),
+            what="LLM",
+            unavailable=LlmUnavailableError,
+            bad_response=LlmBadResponseError,
+            detail=_error_detail,
+        )
         if response.status_code != httpx.codes.OK:
             raise LlmBadResponseError(
                 f"LLM returned {response.status_code}{_error_detail(response)}"
