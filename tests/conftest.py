@@ -1,14 +1,20 @@
+import asyncio
 from collections.abc import AsyncGenerator, AsyncIterator
+from pathlib import Path
 
 import httpx
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI
-from sqlalchemy import make_url
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import Connection, make_url
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from app.config import get_settings
 from app.database import Database
 from app.main import create_app
+
+ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
 
 @pytest.fixture
@@ -37,6 +43,27 @@ async def session(database: Database) -> AsyncIterator[AsyncSession]:
         await transaction.rollback()
 
 
+def _upgrade(connection: Connection, config: Config) -> None:
+    config.attributes["connection"] = connection
+    command.upgrade(config, "head")
+
+
+async def _migrate(url: str) -> None:
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            await connection.run_sync(_upgrade, Config(ALEMBIC_INI))
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def migrated_database_url(test_database_url: str) -> str:
+    """Bring the test database schema to head once per test session."""
+    asyncio.run(_migrate(test_database_url))
+    return test_database_url
+
+
 @pytest.fixture(scope="session")
 def test_database_url() -> str:
     url = get_settings().test_database_url
@@ -51,7 +78,7 @@ def test_database_url() -> str:
 
 
 @pytest.fixture
-async def database(test_database_url: str) -> AsyncIterator[Database]:
-    db = Database(test_database_url)
+async def database(migrated_database_url: str) -> AsyncIterator[Database]:
+    db = Database(migrated_database_url)
     yield db
     await db.dispose()

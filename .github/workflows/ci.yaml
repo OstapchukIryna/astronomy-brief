@@ -50,8 +50,6 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - name: Apply migrations
-        run: uv run alembic upgrade head
       - run: uv run pytest -v --cov --cov-report=term --cov-report=xml
       - uses: codecov/codecov-action@v5
         with:
