@@ -5,7 +5,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry
-from app.domain.history import BriefSummary, HistoryFilter, HistoryPage, PageRequest
+from app.domain.history import (
+    KEYWORD_SIMILARITY_THRESHOLD,
+    BriefSummary,
+    HistoryFilter,
+    HistoryPage,
+    PageRequest,
+)
 from app.models import Brief
 
 
@@ -75,6 +81,16 @@ class BriefRepository:
         Without a keyword the newest briefs come first. With a keyword the
         most similar titles come first, then the newest.
         """
+        if history_filter.keyword is not None:
+            await self._session.execute(
+                select(
+                    func.set_config(
+                        "pg_trgm.word_similarity_threshold",
+                        str(KEYWORD_SIMILARITY_THRESHOLD),
+                        True,
+                    )
+                )
+            )
         statement = select(Brief.date, Brief.title, Brief.media_type, Brief.url)
         if history_filter.date_from is not None:
             statement = statement.where(Brief.date >= history_filter.date_from)

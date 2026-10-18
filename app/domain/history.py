@@ -3,9 +3,10 @@ from dataclasses import dataclass
 
 from app.domain.apod import MediaType
 
-MIN_KEYWORD_LENGTH = 3  # pg_trgm splits text into 3-character groups
+MIN_KEYWORD_LENGTH = 3  # shorter keywords match too many titles by chance
 MAX_KEYWORD_LENGTH = 100
 MAX_PAGE_SIZE = 100
+KEYWORD_SIMILARITY_THRESHOLD = 0.6  # how close a title word must be to count as found
 
 
 class InvalidHistoryFilterError(ValueError):
