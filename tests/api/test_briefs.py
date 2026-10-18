@@ -236,3 +236,23 @@ async def test_history_rejects_invalid_request(
     response = await client.get("/briefs", params=params)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+async def test_history_pages_through_all_briefs_by_date(
+    client: httpx.AsyncClient,
+    session: AsyncSession,
+    use_source: Callable[[ApodSource], None],
+) -> None:
+    use_source(FakeSource())
+    briefs = BriefRepository(session)
+    for day in (1, 2, 3):
+        await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
+
+    first = (await client.get("/briefs", params={"limit": 2})).json()
+    second = (
+        await client.get("/briefs", params={"limit": 2, "before": first["next_before"]})
+    ).json()
+
+    assert first["next_before"] == "2020-01-02"
+    assert [item["date"] for item in second["items"]] == ["2020-01-01"]
+    assert second["next_before"] is None
