@@ -10,6 +10,7 @@ from app.domain.apod import (
     ApodUnavailableError,
 )
 from app.domain.dates import InvalidApodDateError
+from app.domain.history import InvalidHistoryFilterError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ def _external_error_handler(status_code: int, detail: str) -> Handler:
     return handle
 
 
-async def _handle_invalid_date(request: Request, error: Exception) -> JSONResponse:
+async def _handle_invalid_request(request: Request, error: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={"detail": str(error)},
@@ -71,4 +72,5 @@ def register_exception_handlers(app: FastAPI) -> None:
         ),
     )
 
-    app.add_exception_handler(InvalidApodDateError, _handle_invalid_date)
+    app.add_exception_handler(InvalidApodDateError, _handle_invalid_request)
+    app.add_exception_handler(InvalidHistoryFilterError, _handle_invalid_request)

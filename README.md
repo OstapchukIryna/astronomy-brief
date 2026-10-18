@@ -20,7 +20,7 @@ This API takes a day's picture and builds a small brief around it. It takes the 
 | Beginner-friendly explanation | ✅ done |
 | 3–5 key facts | ✅ done |
 | Follow-up questions about the topic | 🚧 planned |
-| History of past briefs with filters | 🚧 planned |
+| History of past briefs with filters | ✅ done |
 
 ## Tech stack
 
@@ -131,6 +131,7 @@ Then open http://localhost:8000/docs.
 |---|---|---|
 | `GET` | `/health` | The app is running |
 | `GET` | `/health/ready` | The database is reachable |
+| `GET` | `/briefs` | Lists stored briefs, filtered by dates and a title keyword |
 | `GET` | `/briefs/{date}` | Returns the APOD for a date (`YYYY-MM-DD`) |
 | `GET` | `/briefs/{date}/explanation` | Returns a beginner-friendly explanation |
 | `GET` | `/briefs/{date}/facts` | Returns 3–5 key facts |
@@ -139,6 +140,8 @@ Then open http://localhost:8000/docs.
 curl http://localhost:8000/briefs/2020-01-01
 curl http://localhost:8000/briefs/2020-01-01/explanation
 curl http://localhost:8000/briefs/2020-01-01/facts
+curl "http://localhost:8000/briefs?date_from=2020-01-01&date_to=2020-01-31"
+curl "http://localhost:8000/briefs?keyword=betelgeus"
 ```
 
 

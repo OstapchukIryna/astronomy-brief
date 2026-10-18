@@ -1,4 +1,6 @@
+import datetime as dt
 from collections.abc import Callable
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -14,6 +16,7 @@ from app.domain.apod import (
     ApodUnavailableError,
 )
 from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
+from app.repositories.brief import BriefRepository
 from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 
@@ -184,3 +187,52 @@ async def test_maps_source_errors_on_generated_endpoints(
     response = await client.get(f"/briefs/2020-01-01/{path}")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+# history
+
+
+async def test_history_returns_stored_briefs_newest_first(
+    client: httpx.AsyncClient,
+    session: AsyncSession,
+    use_source: Callable[[ApodSource], None],
+) -> None:
+    use_source(FakeSource())
+    briefs = BriefRepository(session)
+    for day in (1, 2, 3):
+        await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
+
+    response = await client.get("/briefs", params={"limit": 2})
+
+    assert response.status_code == status.HTTP_200_OK
+    body = response.json()
+    assert [item["date"] for item in body["items"]] == ["2020-01-03", "2020-01-02"]
+    assert body["items"][0] == {
+        "date": "2020-01-03",
+        "title": "Betelgeuse Imagined",
+        "media_type": "image",
+        "url": "https://example.com/betelgeuse.jpg",
+    }
+    assert body["has_more"] is True
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            {"date_from": "2020-01-02", "date_to": "2020-01-01"}, id="start-after-end"
+        ),
+        pytest.param({"keyword": "ab"}, id="short-keyword"),
+        pytest.param({"limit": 101}, id="page-too-large"),
+    ],
+)
+async def test_history_rejects_invalid_request(
+    client: httpx.AsyncClient,
+    use_source: Callable[[ApodSource], None],
+    params: dict[str, str | int],
+) -> None:
+    use_source(FakeSource())
+
+    response = await client.get("/briefs", params=params)
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

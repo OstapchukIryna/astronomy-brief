@@ -17,6 +17,15 @@ class BriefResponse(BaseModel):
     credit: str | None
 
 
+class BriefSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    date: dt.date
+    title: str
+    media_type: MediaType
+    url: str
+
+
 class ExplanationResponse(BaseModel):
     date: dt.date
     explanation: str
@@ -25,3 +34,8 @@ class ExplanationResponse(BaseModel):
 class FactsResponse(BaseModel):
     date: dt.date
     facts: list[str]
+
+
+class HistoryResponse(BaseModel):
+    items: list[BriefSummaryResponse]
+    has_more: bool
