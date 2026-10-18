@@ -102,9 +102,9 @@ class BriefRepository:
         if page.after is not None:
             statement = statement.where(Brief.date < page.after.date)
         statement = (
-            statement.order_by(Brief.date.desc())
-            .limit(page.limit + 1)  # one extra row tells whether there is a next page
-            .offset(page.offset)
+            statement.order_by(Brief.date.desc()).limit(
+                page.limit + 1
+            )  # one extra row tells whether there is a next page
         )
 
         rows = (await self._session.execute(statement)).all()
@@ -114,4 +114,4 @@ class BriefRepository:
         )
         has_more = len(rows) > page.limit
         next_cursor = HistoryCursor(date=items[-1].date) if has_more else None
-        return HistoryPage(items=items, has_more=has_more, next_cursor=next_cursor)
+        return HistoryPage(items=items, next_cursor=next_cursor)

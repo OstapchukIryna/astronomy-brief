@@ -52,7 +52,6 @@ class PageRequest:
     """Which part of the result to return."""
 
     limit: int
-    offset: int = 0
     after: HistoryCursor | None = None
 
     def __post_init__(self) -> None:
@@ -60,8 +59,6 @@ class PageRequest:
             raise InvalidHistoryFilterError(
                 f"The page size must be 1 to {MAX_PAGE_SIZE}"
             )
-        if self.offset < 0:
-            raise InvalidHistoryFilterError("The page offset can't be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,5 +76,4 @@ class HistoryPage:
     """One page of history and check if there is a next one."""
 
     items: tuple[BriefSummary, ...]
-    has_more: bool
-    next_cursor: HistoryCursor | None = None
+    next_cursor: HistoryCursor | None

@@ -213,7 +213,7 @@ async def test_history_returns_stored_briefs_newest_first(
         "media_type": "image",
         "url": "https://example.com/betelgeuse.jpg",
     }
-    assert body["has_more"] is True
+    assert body["next_before"] == "2020-01-02"
 
 
 @pytest.mark.parametrize(

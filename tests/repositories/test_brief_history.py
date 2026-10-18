@@ -4,7 +4,7 @@ from dataclasses import replace
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.history import HistoryFilter, PageRequest
+from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
 from app.repositories.brief import BriefRepository
 from tests.fakes import ENTRY
 
@@ -74,17 +74,18 @@ async def test_search_results_come_newest_first(session: AsyncSession) -> None:
     assert [item.date for item in page.items] == [JAN_3, JAN_1]
 
 
-async def test_reports_next_page_only_when_there_is_one(session: AsyncSession) -> None:
+async def test_gives_next_cursor_only_when_there_is_a_next_page(
+    session: AsyncSession,
+) -> None:
     briefs = await store(session, (JAN_1, "One"), (JAN_2, "Two"), (JAN_3, "Three"))
 
     first = await briefs.list_summaries(ALL, PageRequest(limit=2))
-    last = await briefs.list_summaries(ALL, PageRequest(limit=2, offset=2))
-
-    assert ([item.date for item in first.items], first.has_more) == (
-        [JAN_3, JAN_2],
-        True,
+    last = await briefs.list_summaries(
+        ALL, PageRequest(limit=2, after=first.next_cursor)
     )
-    assert ([item.date for item in last.items], last.has_more) == ([JAN_1], False)
+
+    assert first.next_cursor == HistoryCursor(date=JAN_2)
+    assert last.next_cursor is None
 
 
 async def test_keyword_search_does_not_depend_on_server_threshold(
