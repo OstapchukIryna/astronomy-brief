@@ -4,21 +4,24 @@ from collections.abc import Awaitable, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry, ApodSource
-from app.domain.brief import Brief
+from app.domain.brief import Brief, BriefRepository
 from app.domain.dates import apod_today, ensure_valid_apod_date
 from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 from app.domain.llm import LlmClient
-from app.repositories.brief import BriefRepository
 
 
 class BriefService:
-    """Logic around briefs."""
+    """Get APOD entries, generate their explanations and facts once, and list the stored history."""
 
     def __init__(
-        self, session: AsyncSession, source: ApodSource, llm: LlmClient
+        self,
+        session: AsyncSession,
+        briefs: BriefRepository,
+        source: ApodSource,
+        llm: LlmClient,
     ) -> None:
         self._session = session
-        self._briefs = BriefRepository(session)
+        self._briefs = briefs
         self._source = source
         self._llm = llm
 

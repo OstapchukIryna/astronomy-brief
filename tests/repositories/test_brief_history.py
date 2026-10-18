@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
-from app.repositories.brief import BriefRepository
+from app.repositories.brief import SqlBriefRepository
 from tests.fakes import ENTRY
 
 JAN_1 = dt.date(2020, 1, 1)
@@ -20,9 +20,9 @@ FIRST_PAGE = PageRequest(limit=20)
 
 async def store(
     session: AsyncSession, *entries: tuple[dt.date, str]
-) -> BriefRepository:
+) -> SqlBriefRepository:
     """Save briefs with the given dates and titles."""
-    repository = BriefRepository(session)
+    repository = SqlBriefRepository(session)
     for date, title in entries:
         await repository.insert_if_absent(replace(ENTRY, date=date, title=title))
     return repository

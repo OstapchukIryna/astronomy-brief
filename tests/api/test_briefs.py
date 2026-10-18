@@ -16,7 +16,7 @@ from app.domain.apod import (
     ApodUnavailableError,
 )
 from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
-from app.repositories.brief import BriefRepository
+from app.repositories.brief import SqlBriefRepository
 from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 
@@ -198,7 +198,7 @@ async def test_history_returns_stored_briefs_newest_first(
     use_source: Callable[[ApodSource], None],
 ) -> None:
     use_source(FakeSource())
-    briefs = BriefRepository(session)
+    briefs = SqlBriefRepository(session)
     for day in (1, 2, 3):
         await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
 
@@ -244,7 +244,7 @@ async def test_history_pages_through_all_briefs_by_date(
     use_source: Callable[[ApodSource], None],
 ) -> None:
     use_source(FakeSource())
-    briefs = BriefRepository(session)
+    briefs = SqlBriefRepository(session)
     for day in (1, 2, 3):
         await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
 

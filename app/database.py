@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    """Own an engine and the session factory for the lifestime of the app."""
+    """Own an engine and the session factory for the lifetime of the app."""
 
     def __init__(self, url: str) -> None:
         self.engine: AsyncEngine = create_async_engine(url, pool_pre_ping=True)
@@ -28,7 +28,7 @@ class Database:
                 async with self.engine.connect() as conn:
                     await conn.execute(text("SELECT 1"))
         except Exception:
-            logger.warning("Databse ping failed.", exc_info=True)
+            logger.warning("Database ping failed.", exc_info=True)
             return False
         return True
 

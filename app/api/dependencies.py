@@ -5,6 +5,7 @@ from fastapi import Depends, Request
 from app.database import DbSession
 from app.domain.apod import ApodSource
 from app.domain.llm import LlmClient
+from app.repositories.brief import SqlBriefRepository
 from app.services.brief import BriefService
 
 
@@ -21,7 +22,7 @@ def get_brief_service(
     source: Annotated[ApodSource, Depends(get_apod_source)],
     llm: Annotated[LlmClient, Depends(get_llm)],
 ) -> BriefService:
-    return BriefService(session, source, llm)
+    return BriefService(session, SqlBriefRepository(session), source, llm)
 
 
 BriefServiceDep = Annotated[BriefService, Depends(get_brief_service)]

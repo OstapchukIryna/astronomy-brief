@@ -34,7 +34,7 @@ def _to_brief(record: BriefRecord) -> Brief:
     )
 
 
-class BriefRepository:
+class SqlBriefRepository:
     """Store and load briefs."""
 
     def __init__(self, session: AsyncSession) -> None:
