@@ -1,4 +1,5 @@
 import datetime as dt
+from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,41 +29,51 @@ class BriefService:
 
     async def get_explanation(self, date: dt.date) -> str:
         """Return the beginner explanation for the date, generating and saving it."""
-        brief = await self._get_or_create(date)
-        if brief.simple_explanation is not None:
-            return brief.simple_explanation
-
-        entry = to_entry(brief)
-        await (
-            self._session.rollback()
-        )  # Release the connection while the LLM is working
-
-        text = await self._llm.explain(entry)
-        await self._briefs.set_explanation_if_absent(date, text)
-        await self._session.commit()
-
-        brief = await self._briefs.get_by_date(date)
-        assert brief is not None and brief.simple_explanation is not None
-        return brief.simple_explanation
+        return await self._generate_once(
+            date,
+            stored=lambda brief: brief.simple_explanation,
+            generate=self._llm.explain,
+            save=self._briefs.set_explanation_if_absent,
+        )
 
     async def get_facts(self, date: dt.date) -> list[str]:
-        """Return the requsted facts for the date, generating and saving it."""
+        """Return the facts for the date, generating and saving them."""
+        return await self._generate_once(
+            date,
+            stored=lambda brief: brief.facts,
+            generate=self._llm.extract_facts,
+            save=self._briefs.set_facts_if_absent,
+        )
+
+    async def _generate_once[T](
+        self,
+        date: dt.date,
+        *,
+        stored: Callable[[Brief], T | None],
+        generate: Callable[[ApodEntry], Awaitable[T]],
+        save: Callable[[dt.date, T], Awaitable[None]],
+    ) -> T:
+        """Return a stored generated value, or generate it once and store it.
+
+        The DB connection is released while the LLM is working. If a concurrent
+        request saved its value first, that value wins and is returned.
+        """
         brief = await self._get_or_create(date)
-        if brief.facts is not None:
-            return brief.facts
+        if (value := stored(brief)) is not None:
+            return value
 
         entry = to_entry(brief)
         await (
             self._session.rollback()
         )  # Release the connection while the LLM is working
-
-        facts = await self._llm.extract_facts(entry)
-        await self._briefs.set_facts_if_absent(date, facts)
+        await save(date, await generate(entry))
         await self._session.commit()
 
         brief = await self._briefs.get_by_date(date)
-        assert brief is not None and brief.facts is not None
-        return brief.facts
+        assert brief is not None
+        value = stored(brief)
+        assert value is not None
+        return value
 
     async def _get_or_create(self, date: dt.date) -> Brief:
         """Return the stored brief for the valid date, fetching and saving it on first request.
@@ -74,9 +85,7 @@ class BriefService:
         brief = await self._briefs.get_by_date(date)
         if brief is not None:
             return brief
-        await (
-            self._session.rollback()
-        )  # Release the connection while the LLM is working
+        await self._session.rollback()
 
         entry = await self._source.get_entry(date)
         await self._briefs.insert_if_absent(entry)
