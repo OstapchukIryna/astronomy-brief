@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry
+from app.domain.brief import Brief
 from app.domain.history import (
     KEYWORD_SIMILARITY_THRESHOLD,
     BriefSummary,
@@ -13,19 +14,23 @@ from app.domain.history import (
     HistoryPage,
     PageRequest,
 )
-from app.models import Brief
+from app.models import BriefRecord
 
 
-def to_entry(brief: Brief) -> ApodEntry:
-    """Convert a stored brief back to the APOD entry."""
-    return ApodEntry(
-        date=brief.date,
-        title=brief.title,
-        explanation=brief.explanation,
-        media_type=brief.media_type,
-        url=brief.url,
-        hd_url=brief.hd_url,
-        credit=brief.credit,
+def _to_brief(record: BriefRecord) -> Brief:
+    """Map a stored record to the domain brief."""
+    return Brief(
+        entry=ApodEntry(
+            date=record.date,
+            title=record.title,
+            explanation=record.explanation,
+            media_type=record.media_type,
+            url=record.url,
+            hd_url=record.hd_url,
+            credit=record.credit,
+        ),
+        simple_explanation=record.simple_explanation,
+        facts=record.facts,
     )
 
 
@@ -36,13 +41,16 @@ class BriefRepository:
         self._session = session
 
     async def get_by_date(self, date: dt.date) -> Brief | None:
-        """Return the brief for a given date, or None if it isn't stored yet."""
-        return await self._session.scalar(select(Brief).where(Brief.date == date))
+        """Return the brief for a given date or None if it wasn't stored."""
+        record = await self._session.scalar(
+            select(BriefRecord).where(BriefRecord.date == date)
+        )
+        return _to_brief(record) if record is not None else None
 
     async def insert_if_absent(self, entry: ApodEntry) -> None:
         """Insert a brief for the entry's date unless one already exists."""
         statement = (
-            insert(Brief)
+            insert(BriefRecord)
             .values(
                 date=entry.date,
                 title=entry.title,
@@ -52,15 +60,15 @@ class BriefRepository:
                 hd_url=entry.hd_url,
                 credit=entry.credit,
             )
-            .on_conflict_do_nothing(index_elements=[Brief.date])
+            .on_conflict_do_nothing(index_elements=[BriefRecord.date])
         )
         await self._session.execute(statement)
 
     async def set_explanation_if_absent(self, date: dt.date, text: str) -> None:
         """Save the simple explanation unless the brief already has one."""
         statement = (
-            update(Brief)
-            .where(Brief.date == date, Brief.simple_explanation.is_(None))
+            update(BriefRecord)
+            .where(BriefRecord.date == date, BriefRecord.simple_explanation.is_(None))
             .values(simple_explanation=text)
         )
         await self._session.execute(statement)
@@ -68,8 +76,8 @@ class BriefRepository:
     async def set_facts_if_absent(self, date: dt.date, facts: list[str]) -> None:
         """Save the facts unless the brief already has them."""
         statement = (
-            update(Brief)
-            .where(Brief.date == date, Brief.facts.is_(None))
+            update(BriefRecord)
+            .where(BriefRecord.date == date, BriefRecord.facts.is_(None))
             .values(facts=facts)
         )
         await self._session.execute(statement)
@@ -89,20 +97,22 @@ class BriefRepository:
                 )
             )
 
-        statement = select(Brief.date, Brief.title, Brief.media_type, Brief.url)
+        statement = select(
+            BriefRecord.date, BriefRecord.title, BriefRecord.media_type, BriefRecord.url
+        )
         if history_filter.date_from is not None:
-            statement = statement.where(Brief.date >= history_filter.date_from)
+            statement = statement.where(BriefRecord.date >= history_filter.date_from)
         if history_filter.date_to is not None:
-            statement = statement.where(Brief.date <= history_filter.date_to)
+            statement = statement.where(BriefRecord.date <= history_filter.date_to)
         if history_filter.keyword is not None:
             keyword = literal(history_filter.keyword)
             statement = statement.where(
-                keyword.op("<%", is_comparison=True)(Brief.title)
+                keyword.op("<%", is_comparison=True)(BriefRecord.title)
             )
         if page.after is not None:
-            statement = statement.where(Brief.date < page.after.date)
+            statement = statement.where(BriefRecord.date < page.after.date)
         statement = (
-            statement.order_by(Brief.date.desc()).limit(
+            statement.order_by(BriefRecord.date.desc()).limit(
                 page.limit + 1
             )  # one extra row tells whether there is a next page
         )

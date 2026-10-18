@@ -2,7 +2,6 @@ from dataclasses import replace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.apod import MediaType
 from app.repositories.brief import BriefRepository
 from tests.fakes import ENTRY
 
@@ -20,8 +19,7 @@ async def test_finds_inserted_entry_by_date(session: AsyncSession) -> None:
     brief = await repository.get_by_date(ENTRY.date)
 
     assert brief is not None
-    assert brief.title == ENTRY.title
-    assert brief.media_type == MediaType.IMAGE
+    assert brief.entry == ENTRY
     assert brief.simple_explanation is None
 
 
@@ -33,7 +31,7 @@ async def test_insert_if_absent_keeps_existing_brief(session: AsyncSession) -> N
     brief = await repository.get_by_date(ENTRY.date)
 
     assert brief is not None
-    assert brief.title == ENTRY.title
+    assert brief.entry.title == ENTRY.title
 
 
 async def test_sets_explanation_when_absent(session: AsyncSession) -> None:

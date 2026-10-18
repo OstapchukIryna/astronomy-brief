@@ -8,7 +8,7 @@ from app.domain.apod import MediaType
 from app.models.base import Base, TimestampMixin
 
 
-class Brief(TimestampMixin, Base):
+class BriefRecord(TimestampMixin, Base):
     __tablename__ = "briefs"
     __table_args__ = (
         Index(

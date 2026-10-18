@@ -4,11 +4,11 @@ from collections.abc import Awaitable, Callable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry, ApodSource
+from app.domain.brief import Brief
 from app.domain.dates import apod_today, ensure_valid_apod_date
 from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 from app.domain.llm import LlmClient
-from app.models import Brief
-from app.repositories.brief import BriefRepository, to_entry
+from app.repositories.brief import BriefRepository
 
 
 class BriefService:
@@ -25,7 +25,7 @@ class BriefService:
     async def get_entry(self, date: dt.date) -> ApodEntry:
         """Return the APOD entry for the valid date, fetching and saving it."""
         brief = await self._get_or_create(date)
-        return to_entry(brief)
+        return brief.entry
 
     async def get_explanation(self, date: dt.date) -> str:
         """Return the beginner explanation for the date, generating and saving it."""
@@ -62,7 +62,7 @@ class BriefService:
         if (value := stored(brief)) is not None:
             return value
 
-        entry = to_entry(brief)
+        entry = brief.entry
         await (
             self._session.rollback()
         )  # Release the connection while the LLM is working
