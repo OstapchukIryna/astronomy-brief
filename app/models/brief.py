@@ -24,7 +24,10 @@ class Brief(TimestampMixin, Base):
     title: Mapped[str] = mapped_column(Text)
     media_type: Mapped[MediaType] = mapped_column(
         Enum(
-            MediaType, native_enum=False, values_callable=lambda e: [m.value for m in e]
+            MediaType,
+            native_enum=False,
+            create_constraint=True,
+            values_callable=lambda e: [m.value for m in e],
         )
     )
     hd_url: Mapped[str | None] = mapped_column(Text)
