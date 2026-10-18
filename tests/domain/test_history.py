@@ -71,5 +71,4 @@ def test_rejects_page_outside_limits(limit: int, offset: int) -> None:
 
 @pytest.mark.parametrize("limit", [1, 100])
 def test_accepts_page_size_at_limits(limit: int) -> None:
-
     assert PageRequest(limit=limit).limit == limit
