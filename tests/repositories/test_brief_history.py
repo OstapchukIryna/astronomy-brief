@@ -1,6 +1,7 @@
 import datetime as dt
 from dataclasses import replace
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.history import HistoryFilter, PageRequest
@@ -81,3 +82,14 @@ async def test_reports_next_page_only_when_there_is_one(session: AsyncSession) -
         True,
     )
     assert ([item.date for item in last.items], last.has_more) == ([JAN_1], False)
+
+
+async def test_keyword_search_does_not_depend_on_server_threshold(
+    session: AsyncSession,
+) -> None:
+    briefs = await store(session, (JAN_1, "Betelgeuse Imagined"))
+    await session.execute(text("SET pg_trgm.word_similarity_threshold = 0.95"))
+
+    page = await briefs.list_summaries(HistoryFilter(keyword="betelgeus"), FIRST_PAGE)
+
+    assert [item.title for item in page.items] == ["Betelgeuse Imagined"]
