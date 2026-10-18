@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, status
 
 from app.api.dependencies import BriefServiceDep
-from app.domain.history import HistoryFilter, PageRequest
+from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
 from app.schemas.brief import (
     BriefResponse,
     BriefSummaryResponse,
@@ -68,19 +68,22 @@ async def list_history(
     date_to: dt.date | None = None,
     keyword: str | None = None,
     limit: int = DEFAULT_PAGE_SIZE,
-    offset: int = 0,
+    before: dt.date | None = None,
 ) -> HistoryResponse:
-    """Return stored briefs, newest first, or most similar first when searching by keyword.
+    """Return stored briefs with the newest first.
 
     Only briefs that someone has already requested are stored.
     """
     page = await service.list_history(
         HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
-        PageRequest(limit=limit, offset=offset),
+        PageRequest(
+            limit=limit,
+            after=HistoryCursor(date=before) if before is not None else None,
+        ),
     )
     return HistoryResponse(
         items=[BriefSummaryResponse.model_validate(item) for item in page.items],
-        has_more=page.has_more,
+        next_before=page.next_cursor.date if page.next_cursor is not None else None,
     )
 
 

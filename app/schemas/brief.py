@@ -38,4 +38,4 @@ class FactsResponse(BaseModel):
 
 class HistoryResponse(BaseModel):
     items: list[BriefSummaryResponse]
-    has_more: bool
+    next_before: dt.date | None

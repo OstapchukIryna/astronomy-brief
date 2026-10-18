@@ -41,19 +41,24 @@ class HistoryFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class HistoryCursor:
+    """Where the previous page ended: the date of its last brief."""
+
+    date: dt.date
+
+
+@dataclass(frozen=True, slots=True)
 class PageRequest:
     """Which part of the result to return."""
 
     limit: int
-    offset: int = 0
+    after: HistoryCursor | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.limit <= MAX_PAGE_SIZE:
             raise InvalidHistoryFilterError(
                 f"The page size must be 1 to {MAX_PAGE_SIZE}"
             )
-        if self.offset < 0:
-            raise InvalidHistoryFilterError("The page offset can't be negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,4 +76,4 @@ class HistoryPage:
     """One page of history and check if there is a next one."""
 
     items: tuple[BriefSummary, ...]
-    has_more: bool
+    next_cursor: HistoryCursor | None
