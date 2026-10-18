@@ -61,6 +61,29 @@ _HISTORY_RESPONSES: Responses = {
 }
 
 
+@router.get("", responses=_HISTORY_RESPONSES)
+async def list_history(
+    service: BriefServiceDep,
+    date_from: dt.date | None = None,
+    date_to: dt.date | None = None,
+    keyword: str | None = None,
+    limit: int = DEFAULT_PAGE_SIZE,
+    offset: int = 0,
+) -> HistoryResponse:
+    """Return stored briefs, newest first, or most similar first when searching by keyword.
+
+    Only briefs that someone has already requested are stored.
+    """
+    page = await service.list_history(
+        HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
+        PageRequest(limit=limit, offset=offset),
+    )
+    return HistoryResponse(
+        items=[BriefSummaryResponse.model_validate(item) for item in page.items],
+        has_more=page.has_more,
+    )
+
+
 @router.get("/{date}", responses=_APOD_RESPONSES)
 async def get_brief(date: dt.date, service: BriefServiceDep) -> BriefResponse:
     """Return the APOD brief for the given date. The date must be between 1995-06-16 and today in US Eastern time."""
@@ -88,26 +111,3 @@ async def get_facts(date: dt.date, service: BriefServiceDep) -> FactsResponse:
     """
     facts = await service.get_facts(date)
     return FactsResponse(date=date, facts=facts)
-
-
-@router.get("", responses=_HISTORY_RESPONSES)
-async def list_history(
-    service: BriefServiceDep,
-    date_from: dt.date | None = None,
-    date_to: dt.date | None = None,
-    keyword: str | None = None,
-    limit: int = DEFAULT_PAGE_SIZE,
-    offset: int = 0,
-) -> HistoryResponse:
-    """Return stored briefs, newest first, or most similar first when searching by keyword.
-
-    Only briefs that someone has already requested are stored.
-    """
-    page = await service.list_history(
-        HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
-        PageRequest(limit=limit, offset=offset),
-    )
-    return HistoryResponse(
-        items=[BriefSummaryResponse.model_validate(item) for item in page.items],
-        has_more=page.has_more,
-    )
