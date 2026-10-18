@@ -2,7 +2,11 @@ import datetime as dt
 
 import pytest
 
-from app.domain.history import HistoryFilter, InvalidHistoryFilterError
+from app.domain.history import (
+    HistoryFilter,
+    InvalidHistoryFilterError,
+    PageRequest,
+)
 
 JAN_1 = dt.date(2020, 1, 1)
 JAN_2 = dt.date(2020, 1, 2)
@@ -50,3 +54,22 @@ def test_accepts_keyword_at_length_limits(length: int) -> None:
     keyword = "x" * length
 
     assert HistoryFilter(keyword=keyword).keyword == keyword
+
+
+@pytest.mark.parametrize(
+    ("limit", "offset"),
+    [
+        pytest.param(0, 0, id="empty-page"),
+        pytest.param(101, 0, id="page-too-large"),
+        pytest.param(20, -1, id="negative-offset"),
+    ],
+)
+def test_rejects_page_outside_limits(limit: int, offset: int) -> None:
+    with pytest.raises(InvalidHistoryFilterError):
+        PageRequest(limit=limit, offset=offset)
+
+
+@pytest.mark.parametrize("limit", [1, 100])
+def test_accepts_page_size_at_limits(limit: int) -> None:
+
+    assert PageRequest(limit=limit).limit == limit

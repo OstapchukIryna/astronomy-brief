@@ -4,7 +4,14 @@ from typing import Any
 from fastapi import APIRouter, status
 
 from app.api.dependencies import BriefServiceDep
-from app.schemas.brief import BriefResponse, ExplanationResponse, FactsResponse
+from app.domain.history import HistoryFilter, PageRequest
+from app.schemas.brief import (
+    BriefResponse,
+    BriefSummaryResponse,
+    ExplanationResponse,
+    FactsResponse,
+    HistoryResponse,
+)
 from app.schemas.error import ErrorResponse
 
 router = APIRouter(prefix="/briefs", tags=["briefs"])
@@ -43,6 +50,16 @@ _GENERATED_RESPONSES: Responses = {
     },
 }
 
+DEFAULT_PAGE_SIZE = 20
+
+_HISTORY_RESPONSES: Responses = {
+    status.HTTP_400_BAD_REQUEST: {
+        "model": ErrorResponse,
+        "description": "The start date is after the end date, the keyword is not "
+        "3 to 100 characters long, or the page size is not 1 to 100",
+    },
+}
+
 
 @router.get("/{date}", responses=_APOD_RESPONSES)
 async def get_brief(date: dt.date, service: BriefServiceDep) -> BriefResponse:
@@ -71,3 +88,26 @@ async def get_facts(date: dt.date, service: BriefServiceDep) -> FactsResponse:
     """
     facts = await service.get_facts(date)
     return FactsResponse(date=date, facts=facts)
+
+
+@router.get("", responses=_HISTORY_RESPONSES)
+async def list_history(
+    service: BriefServiceDep,
+    date_from: dt.date | None = None,
+    date_to: dt.date | None = None,
+    keyword: str | None = None,
+    limit: int = DEFAULT_PAGE_SIZE,
+    offset: int = 0,
+) -> HistoryResponse:
+    """Return stored briefs, newest first, or most similar first when searching by keyword.
+
+    Only briefs that someone has already requested are stored.
+    """
+    page = await service.list_history(
+        HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
+        PageRequest(limit=limit, offset=offset),
+    )
+    return HistoryResponse(
+        items=[BriefSummaryResponse.model_validate(item) for item in page.items],
+        has_more=page.has_more,
+    )
