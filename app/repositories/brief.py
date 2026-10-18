@@ -8,6 +8,7 @@ from app.domain.apod import ApodEntry
 from app.domain.history import (
     KEYWORD_SIMILARITY_THRESHOLD,
     BriefSummary,
+    HistoryCursor,
     HistoryFilter,
     HistoryPage,
     PageRequest,
@@ -76,11 +77,7 @@ class BriefRepository:
     async def list_summaries(
         self, history_filter: HistoryFilter, page: PageRequest
     ) -> HistoryPage:
-        """Return one page of stored briefs that match the filter.
-
-        Without a keyword the newest briefs come first. With a keyword the
-        most similar titles come first, then the newest.
-        """
+        """Return one page of stored briefs that match the filter, newest first."""
         if history_filter.keyword is not None:
             await self._session.execute(
                 select(
@@ -91,6 +88,7 @@ class BriefRepository:
                     )
                 )
             )
+
         statement = select(Brief.date, Brief.title, Brief.media_type, Brief.url)
         if history_filter.date_from is not None:
             statement = statement.where(Brief.date >= history_filter.date_from)
@@ -100,15 +98,20 @@ class BriefRepository:
             keyword = literal(history_filter.keyword)
             statement = statement.where(
                 keyword.op("<%", is_comparison=True)(Brief.title)
-            ).order_by(func.word_similarity(keyword, Brief.title).desc())
+            )
+        if page.after is not None:
+            statement = statement.where(Brief.date < page.after.date)
         statement = (
             statement.order_by(Brief.date.desc())
             .limit(page.limit + 1)  # one extra row tells whether there is a next page
             .offset(page.offset)
         )
+
         rows = (await self._session.execute(statement)).all()
         items = tuple(
             BriefSummary(date=date, title=title, media_type=media_type, url=url)
             for date, title, media_type, url in rows[: page.limit]
         )
-        return HistoryPage(items=items, has_more=len(rows) > page.limit)
+        has_more = len(rows) > page.limit
+        next_cursor = HistoryCursor(date=items[-1].date) if has_more else None
+        return HistoryPage(items=items, has_more=has_more, next_cursor=next_cursor)

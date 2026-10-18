@@ -11,6 +11,9 @@ from tests.fakes import ENTRY
 JAN_1 = dt.date(2020, 1, 1)
 JAN_2 = dt.date(2020, 1, 2)
 JAN_3 = dt.date(2020, 1, 3)
+JAN_4 = dt.date(2020, 1, 4)
+JAN_5 = dt.date(2020, 1, 5)
+
 ALL = HistoryFilter()
 FIRST_PAGE = PageRequest(limit=20)
 
@@ -61,14 +64,14 @@ async def test_keyword_ignores_unrelated_titles(session: AsyncSession) -> None:
     assert page.items == ()
 
 
-async def test_more_similar_titles_come_first(session: AsyncSession) -> None:
+async def test_search_results_come_newest_first(session: AsyncSession) -> None:
     briefs = await store(
-        session, (JAN_3, "Nebulae of Orion"), (JAN_1, "The Orion Nebula")
+        session, (JAN_1, "The Orion Nebula"), (JAN_3, "Nebulae of Orion")
     )
 
     page = await briefs.list_summaries(HistoryFilter(keyword="nebula"), FIRST_PAGE)
 
-    assert [item.date for item in page.items] == [JAN_1, JAN_3]
+    assert [item.date for item in page.items] == [JAN_3, JAN_1]
 
 
 async def test_reports_next_page_only_when_there_is_one(session: AsyncSession) -> None:
@@ -93,3 +96,19 @@ async def test_keyword_search_does_not_depend_on_server_threshold(
     page = await briefs.list_summaries(HistoryFilter(keyword="betelgeus"), FIRST_PAGE)
 
     assert [item.title for item in page.items] == ["Betelgeuse Imagined"]
+
+
+async def test_next_page_skips_nothing_and_repeats_nothing_after_new_saves(
+    session: AsyncSession,
+) -> None:
+    briefs = await store(
+        session, (JAN_1, "One"), (JAN_2, "Two"), (JAN_3, "Three"), (JAN_4, "Four")
+    )
+    first = await briefs.list_summaries(ALL, PageRequest(limit=2))
+    await store(session, (JAN_5, "Five"))
+
+    second = await briefs.list_summaries(
+        ALL, PageRequest(limit=2, after=first.next_cursor)
+    )
+
+    assert [item.date for item in second.items] == [JAN_2, JAN_1]

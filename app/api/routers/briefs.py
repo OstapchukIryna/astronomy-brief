@@ -70,7 +70,7 @@ async def list_history(
     limit: int = DEFAULT_PAGE_SIZE,
     offset: int = 0,
 ) -> HistoryResponse:
-    """Return stored briefs, newest first, or most similar first when searching by keyword.
+    """Return stored briefs with the newest first.
 
     Only briefs that someone has already requested are stored.
     """
