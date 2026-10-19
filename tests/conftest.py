@@ -32,12 +32,6 @@ async def client(app: FastAPI) -> AsyncGenerator[httpx.AsyncClient]:
 
 
 @pytest.fixture
-async def http() -> AsyncIterator[httpx.AsyncClient]:
-    async with httpx.AsyncClient() as client:
-        yield client
-
-
-@pytest.fixture
 async def session(database: Database) -> AsyncIterator[AsyncSession]:
     async with database.engine.connect() as connection:
         transaction = await connection.begin()
