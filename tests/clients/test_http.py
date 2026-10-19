@@ -1,5 +1,3 @@
-from collections.abc import AsyncIterator
-
 import httpx
 import pytest
 import respx
@@ -25,12 +23,6 @@ async def call(http: httpx.AsyncClient) -> httpx.Response:
         bad_response=BadResponse,
         detail=lambda response: f": {response.text}" if response.text else "",
     )
-
-
-@pytest.fixture
-async def http() -> AsyncIterator[httpx.AsyncClient]:
-    async with httpx.AsyncClient() as client:
-        yield client
 
 
 @pytest.mark.parametrize(
