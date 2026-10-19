@@ -15,12 +15,19 @@ class BadResponse(Exception):
     pass
 
 
-async def call(http: httpx.AsyncClient) -> httpx.Response:
+class RateLimited(Unavailable):
+    pass
+
+
+async def call(
+    http: httpx.AsyncClient, *, rate_limited: type[Exception] | None = None
+) -> httpx.Response:
     return await send(
         lambda: http.get(URL),
         what="Service",
         unavailable=Unavailable,
         bad_response=BadResponse,
+        rate_limited=rate_limited,
         detail=lambda response: f": {response.text}" if response.text else "",
     )
 
@@ -62,6 +69,15 @@ async def test_raises_unavailable_on_server_errors(
 
     with pytest.raises(Unavailable, match=f"Service returned {status}: overloaded"):
         await call(http)
+
+
+async def test_raises_rate_limited_on_429_when_the_client_has_that_error(
+    http: httpx.AsyncClient, respx_mock: respx.MockRouter
+) -> None:
+    respx_mock.get(URL).respond(429, text="quota spent")
+
+    with pytest.raises(RateLimited, match="Service returned 429: quota spent"):
+        await call(http, rate_limited=RateLimited)
 
 
 @pytest.mark.parametrize("status", [200, 301, 404])

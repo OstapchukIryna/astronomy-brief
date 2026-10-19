@@ -12,6 +12,7 @@ from app.clients.http import send
 from app.domain.apod import (
     ApodBadResponseError,
     ApodEntry,
+    ApodRateLimitedError,
     ApodUnavailableError,
     MediaType,
 )
@@ -79,6 +80,7 @@ class ApodApiClient:
             what=f"API request for {date}",
             unavailable=ApodUnavailableError,
             bad_response=ApodBadResponseError,
+            rate_limited=ApodRateLimitedError,
         )
 
 

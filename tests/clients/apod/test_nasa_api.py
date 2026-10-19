@@ -7,7 +7,12 @@ import pytest
 import respx
 
 from app.clients.apod.nasa_api import NASA_API_URL, ApodApiClient
-from app.domain.apod import ApodBadResponseError, ApodUnavailableError, MediaType
+from app.domain.apod import (
+    ApodBadResponseError,
+    ApodRateLimitedError,
+    ApodUnavailableError,
+    MediaType,
+)
 
 BETELGEUSE_DATE = dt.date(2020, 1, 1)
 _VALID_URL = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2020/january/BetelgeuseImagined_EsoCalcada_2662.jpg"
@@ -87,6 +92,9 @@ async def test_rejects_entry_for_another_date(
         ),
         pytest.param(
             403, "nasa_api_error_403.json", ApodBadResponseError, id="invalid-key"
+        ),
+        pytest.param(
+            429, "nasa_api_error_429.json", ApodRateLimitedError, id="rate-limited"
         ),
     ],
 )
