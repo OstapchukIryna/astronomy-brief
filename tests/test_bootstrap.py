@@ -3,8 +3,9 @@ from pydantic import SecretStr
 
 from app.bootstrap import build_container
 from app.config import Settings
-from app.main import OPENAI_BASE_URL
 from tests.fakes import ENTRY
+
+OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 
 async def test_openai_provider_calls_openai_with_api_key(

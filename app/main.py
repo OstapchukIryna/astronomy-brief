@@ -6,19 +6,21 @@ from fastapi import FastAPI
 from app.api.errors import register_exception_handlers
 from app.api.routers import briefs, health
 from app.bootstrap import build_container
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.logging import setup_logging
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    async with build_container(get_settings()) as container:
-        app.state.container = container
-        yield
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Build the app from the settings and read them from the environment if none are given."""
+    settings = settings or get_settings()
+    setup_logging(settings)
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+        async with build_container(settings) as container:
+            app.state.container = container
+            yield
 
-def create_app() -> FastAPI:
-    setup_logging(get_settings())
     app = FastAPI(
         title="AI Astronomy Daily Brief",
         description=(
@@ -34,6 +36,3 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     return app
-
-
-app = create_app()
