@@ -55,8 +55,7 @@ DEFAULT_PAGE_SIZE = 20
 _HISTORY_RESPONSES: Responses = {
     status.HTTP_400_BAD_REQUEST: {
         "model": ErrorResponse,
-        "description": "The start date is after the end date, the keyword is not "
-        "3 to 100 characters long, or the page size is not 1 to 100, or contains control characters",
+        "description": "The start date is after the end date, the keyword is not 3 to 100 characters long or contains control characters, or the page size is not 1 to 100",
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,

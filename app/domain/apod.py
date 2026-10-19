@@ -34,7 +34,7 @@ class ApodUnavailableError(ApodError):
 
 
 class ApodRateLimitedError(ApodUnavailableError):
-    """When NASA returned 429. That means, key's quata spent."""
+    """The source refused the request because the API key's quota is spent."""
 
 
 class ApodBadResponseError(ApodError):

@@ -32,7 +32,7 @@ class BrokenUnitOfWork:
         raise OperationalError("SELECT 1", {}, ConnectionRefusedError("refused"))
 
     async def __aexit__(self, *args: object) -> None:
-        pass
+        pass  # pragma: no cover
 
 
 @pytest.fixture
