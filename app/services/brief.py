@@ -44,7 +44,8 @@ class BriefService:
         self, history_filter: HistoryFilter, page: PageRequest
     ) -> HistoryPage:
         """Return one page of stored briefs that match the filter."""
-        return await self._uow.briefs.list_summaries(history_filter, page)
+        async with self._uow:
+            return await self._uow.briefs.list_summaries(history_filter, page)
 
     async def _generate_once[T](
         self,

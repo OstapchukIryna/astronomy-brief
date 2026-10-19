@@ -260,3 +260,14 @@ async def test_history_pages_through_all_briefs_by_date(
     assert first["next_before"] == "2020-01-02"
     assert [item["date"] for item in second["items"]] == ["2020-01-01"]
     assert second["next_before"] is None
+
+
+async def test_history_is_empty_when_nothing_is_stored(
+    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+) -> None:
+    use_source(FakeSource())
+
+    response = await client.get("/briefs")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["items"] == []

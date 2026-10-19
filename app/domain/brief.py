@@ -8,7 +8,7 @@ from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 
 @dataclass(frozen=True, slots=True)
 class Brief:
-    """Overall type, that app keeps and serves for a date. That is the  NASA's entry and the generated fields."""
+    """Overall type that the app keeps and serves for a date NASA's entry and the generated fields together."""
 
     entry: ApodEntry
     simple_explanation: str | None = None

@@ -7,10 +7,11 @@ from app.repositories.brief import SqlBriefRepository
 
 
 class SqlUnitOfWork:
-    """Unit of work over one SQLAlchemy session.
-    Open a new session for each `async with` block and roll it back unless committed."""
+    """Open a new session for each `async with` block and roll it back unless committed.
 
-    brief: SqlBriefRepository
+    The repository is available only inside a block."""
+
+    briefs: SqlBriefRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
@@ -27,6 +28,7 @@ class SqlUnitOfWork:
         tb: TracebackType | None,
     ) -> None:
         await self._session.close()
+        del self.briefs
 
     async def commit(self) -> None:
         await self._session.commit()
