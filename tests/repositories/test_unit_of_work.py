@@ -42,3 +42,14 @@ async def test_rolls_back_and_reraises_the_block_fails(
 
     async with uow:
         assert await uow.briefs.get_by_date(ENTRY.date) is None
+
+
+async def test_hides_the_repository_outside_the_block(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    uow = SqlUnitOfWork(session_factory)
+    async with uow:
+        pass
+
+    with pytest.raises(AttributeError):
+        _ = uow.briefs
