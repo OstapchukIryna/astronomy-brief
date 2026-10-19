@@ -10,7 +10,7 @@ class SqlUnitOfWork:
     """Unit of work over one SQLAlchemy session.
     Open a new session for each `async with` block and roll it back unless committed."""
 
-    brief: SqlBriefRepository
+    briefs: SqlBriefRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory
