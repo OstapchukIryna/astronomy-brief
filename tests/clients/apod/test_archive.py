@@ -1,5 +1,5 @@
 import datetime as dt
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -19,9 +19,8 @@ BETELGEUSE_ARTICLE_URL = (
 
 
 @pytest.fixture
-async def archive() -> AsyncIterator[ApodArchiveClient]:
-    async with httpx.AsyncClient() as http:
-        yield ApodArchiveClient(http)
+def archive(http: httpx.AsyncClient) -> ApodArchiveClient:
+    return ApodArchiveClient(http)
 
 
 async def test_returns_entry_for_migrated_date(

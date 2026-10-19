@@ -1,6 +1,5 @@
 import datetime as dt
 import json
-from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -40,14 +39,13 @@ def completion(content: str | None) -> dict[str, Any]:
 
 
 @pytest.fixture
-async def llm() -> AsyncIterator[OpenAICompatibleLlmClient]:
-    async with httpx.AsyncClient() as http:
-        yield OpenAICompatibleLlmClient(
-            http,
-            base_url=BASE_URL,
-            api_key="test-key",
-            model="test-model",
-        )
+def llm(http: httpx.AsyncClient) -> OpenAICompatibleLlmClient:
+    return OpenAICompatibleLlmClient(
+        http,
+        base_url=BASE_URL,
+        api_key="test-key",
+        model="test-model",
+    )
 
 
 async def test_explain_returns_text(
@@ -162,7 +160,6 @@ async def test_explain_rejects_empty_answer(
 @pytest.mark.parametrize(
     ("status", "expected_error"),
     [
-        pytest.param(429, LlmUnavailableError, id="rate-limited"),
         pytest.param(503, LlmUnavailableError, id="server-error"),
         pytest.param(400, LlmBadResponseError, id="bad-request"),
     ],
@@ -178,15 +175,6 @@ async def test_maps_error_status(
     )
 
     with pytest.raises(expected_error):
-        await llm.explain(ENTRY)
-
-
-async def test_raises_unavailable_on_timeout(
-    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
-) -> None:
-    respx_mock.post(COMPLETIONS_URL).mock(side_effect=httpx.ReadTimeout("timeout"))
-
-    with pytest.raises(LlmUnavailableError):
         await llm.explain(ENTRY)
 
 

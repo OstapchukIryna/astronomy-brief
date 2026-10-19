@@ -1,22 +1,30 @@
-from typing import Annotated
+from fastapi import APIRouter, HTTPException, status
 
-from fastapi import APIRouter, Depends, HTTPException, status
-
-from app.database import Database, get_database
+from app.api.dependencies import DbDep
+from app.schemas.error import ErrorResponse
+from app.schemas.health import HealthResponse
 
 router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-async def liveness() -> dict[str, str]:
-    return {"status": "ok"}
+async def liveness() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 
-@router.get("/health/ready")
-async def readiness(db: Annotated[Database, Depends(get_database)]) -> dict[str, str]:
+@router.get(
+    "/health/ready",
+    responses={
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "model": ErrorResponse,
+            "description": "The database is unreachable",
+        },
+    },
+)
+async def readiness(db: DbDep) -> HealthResponse:
     if not await db.ping():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database unavailable",
         )
-    return {"status": "ok"}
+    return HealthResponse(status="ok")

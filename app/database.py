@@ -1,7 +1,6 @@
 import asyncio
 import logging
 
-from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -31,7 +30,3 @@ class Database:
 
     async def dispose(self):
         await self.engine.dispose()
-
-
-def get_database(request: Request) -> Database:
-    return request.app.state.db

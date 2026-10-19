@@ -1,6 +1,6 @@
 import datetime as dt
 import json
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -14,9 +14,8 @@ _VALID_URL = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/
 
 
 @pytest.fixture
-async def nasa_api() -> AsyncIterator[ApodApiClient]:
-    async with httpx.AsyncClient() as http:
-        yield ApodApiClient(http, api_key="test-key")
+def nasa_api(http: httpx.AsyncClient) -> ApodApiClient:
+    return ApodApiClient(http, api_key="test-key")
 
 
 async def test_maps_response_to_entry(

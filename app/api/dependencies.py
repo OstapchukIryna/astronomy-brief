@@ -2,7 +2,8 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from app.database import Database, get_database
+from app.bootstrap import Container
+from app.database import Database
 from app.domain.apod import ApodSource
 from app.domain.llm import LlmClient
 from app.domain.unit_of_work import UnitOfWork
@@ -10,15 +11,29 @@ from app.repositories.unit_of_work import SqlUnitOfWork
 from app.services.brief import BriefService
 
 
-def get_apod_source(request: Request) -> ApodSource:
-    return request.app.state.apod_source
+def get_container(request: Request) -> Container:
+    return request.app.state.container
 
 
-def get_llm(request: Request) -> LlmClient:
-    return request.app.state.llm
+ContainerDep = Annotated[Container, Depends(get_container)]
 
 
-def get_unit_of_work(db: Annotated[Database, Depends(get_database)]) -> UnitOfWork:
+def get_database(container: ContainerDep) -> Database:
+    return container.db
+
+
+DbDep = Annotated[Database, Depends(get_database)]
+
+
+def get_apod_source(container: ContainerDep) -> ApodSource:
+    return container.apod_source
+
+
+def get_llm(container: ContainerDep) -> LlmClient:
+    return container.llm
+
+
+def get_unit_of_work(db: DbDep) -> UnitOfWork:
     return SqlUnitOfWork(db.sessionmaker)
 
 

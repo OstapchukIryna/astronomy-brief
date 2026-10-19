@@ -1,10 +1,11 @@
-import httpx
 import respx
 from pydantic import SecretStr
 
+from app.bootstrap import build_container
 from app.config import Settings
-from app.main import OPENAI_BASE_URL, _build_llm
 from tests.fakes import ENTRY
+
+OPENAI_BASE_URL = "https://api.openai.com/v1"
 
 
 async def test_openai_provider_calls_openai_with_api_key(
@@ -20,7 +21,7 @@ async def test_openai_provider_calls_openai_with_api_key(
         200, json={"choices": [{"message": {"content": "A star is fading."}}]}
     )
 
-    async with httpx.AsyncClient() as http:
-        await _build_llm(http, settings).explain(ENTRY)
+    async with build_container(settings) as container:
+        await container.llm.explain(ENTRY)
 
     assert route.calls.last.request.headers["Authorization"] == "Bearer sk-test"

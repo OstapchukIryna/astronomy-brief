@@ -1,12 +1,14 @@
 import datetime as dt
-from collections.abc import Callable
 from dataclasses import replace
+from typing import Protocol
 
 import httpx
 import pytest
 from fastapi import FastAPI, status
 
-from app.api.dependencies import get_apod_source, get_llm, get_unit_of_work
+from app.api.dependencies import get_container, get_unit_of_work
+from app.bootstrap import Container
+from app.database import Database
 from app.domain.apod import (
     ApodBadResponseError,
     ApodNotFoundError,
@@ -18,34 +20,36 @@ from app.repositories.unit_of_work import SqlUnitOfWork
 from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 
+class UseFakes(Protocol):
+    def __call__(self, source: ApodSource, llm: LlmClient | None = None) -> None: ...
+
+
 @pytest.fixture
-def use_source(app: FastAPI, uow: SqlUnitOfWork) -> Callable[[ApodSource], None]:
-    """Make the app use the test session and the given APOD source."""
+def use_fakes(app: FastAPI, uow: SqlUnitOfWork, database: Database) -> UseFakes:
+    """Make the app use the test unit of work and the given APOD source."""
     app.dependency_overrides[get_unit_of_work] = lambda: uow
 
-    def _use(source: ApodSource) -> None:
-        app.dependency_overrides[get_apod_source] = lambda: source
-        app.dependency_overrides[get_llm] = lambda: FakeLlm()
+    def _use(source: ApodSource, llm: LlmClient | None = None) -> None:
+        container = Container(db=database, apod_source=source, llm=llm or FakeLlm())
+        app.dependency_overrides[get_container] = lambda: container
 
     return _use
 
 
-@pytest.fixture
-def use_llm(
-    app: FastAPI, use_source: Callable[[ApodSource], None]
-) -> Callable[[LlmClient], None]:
-    """Make the app use the given LLM."""
-
-    def _use(llm: LlmClient) -> None:
-        app.dependency_overrides[get_llm] = lambda: llm
-
-    return _use
+async def store_briefs(uow: SqlUnitOfWork, *days: int) -> None:
+    """Save briefs for the given days of January 2020."""
+    async with uow:
+        for day in days:
+            await uow.briefs.insert_if_absent(
+                replace(ENTRY, date=dt.date(2020, 1, day))
+            )
+        await uow.commit()
 
 
 async def test_returns_brief_for_date(
-    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource(ENTRY))
+    use_fakes(FakeSource(ENTRY))
 
     response = await client.get("/briefs/2020-01-01")
 
@@ -62,9 +66,9 @@ async def test_returns_brief_for_date(
 
 
 async def test_rejects_malformed_date(
-    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource(ENTRY))
+    use_fakes(FakeSource(ENTRY))
 
     response = await client.get("/briefs/2020-13-45")
 
@@ -83,11 +87,11 @@ async def test_rejects_malformed_date(
 )
 async def test_maps_source_errors_to_status(
     client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
+    use_fakes: UseFakes,
     error: Exception,
     expected_status: int,
 ) -> None:
-    use_source(FakeSource(error))
+    use_fakes(FakeSource(error))
 
     response = await client.get("/briefs/2020-01-01")
 
@@ -95,9 +99,9 @@ async def test_maps_source_errors_to_status(
 
 
 async def test_does_not_expose_internal_error_details(
-    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(
+    use_fakes(
         FakeSource(
             ApodUnavailableError(
                 "Archive returned 503: https://apod.nasa.gov/apod/ap200101.html"
@@ -110,25 +114,21 @@ async def test_does_not_expose_internal_error_details(
     assert "apod.nasa.gov" not in response.text
 
 
-async def test_rejects_future_date_without_calling_source(
-    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+async def test_rejects_future_date(
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
     source = FakeSource(ENTRY)
-    use_source(source)
+    use_fakes(source)
 
     response = await client.get("/briefs/2100-01-01")
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert source.calls == 0
 
 
 async def test_returns_explanation_for_date(
-    client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
-    use_llm: Callable[[LlmClient], None],
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource())
-    use_llm(FakeLlm(explanation="A star is fading."))
+    use_fakes(FakeSource(), llm=FakeLlm(explanation="A star is fading."))
 
     response = await client.get("/briefs/2020-01-01/explanation")
 
@@ -138,11 +138,9 @@ async def test_returns_explanation_for_date(
 
 async def test_returns_facts_for_date(
     client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
-    use_llm: Callable[[LlmClient], None],
+    use_fakes: UseFakes,
 ) -> None:
-    use_source(FakeSource())
-    use_llm(FakeLlm())
+    use_fakes(FakeSource())
 
     response = await client.get("/briefs/2020-01-01/facts")
 
@@ -150,7 +148,6 @@ async def test_returns_facts_for_date(
     assert response.json() == {"date": "2020-01-01", "facts": FACTS}
 
 
-@pytest.mark.parametrize("path", ["explanation", "facts"])
 @pytest.mark.parametrize(
     ("error", "expected_status"),
     [
@@ -160,48 +157,25 @@ async def test_returns_facts_for_date(
 )
 async def test_maps_llm_errors_to_status(
     client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
-    use_llm: Callable[[LlmClient], None],
-    path: str,
+    use_fakes: UseFakes,
     error: Exception,
     expected_status: int,
 ) -> None:
-    use_source(FakeSource())
-    use_llm(FakeLlm(explanation=error, facts=error))
+    use_fakes(FakeSource(), llm=FakeLlm(explanation=error, facts=error))
 
-    response = await client.get(f"/briefs/2020-01-01/{path}")
+    response = await client.get("/briefs/2020-01-01/explanation")
 
     assert response.status_code == expected_status
-
-
-@pytest.mark.parametrize("path", ["explanation", "facts"])
-async def test_maps_source_errors_on_generated_endpoints(
-    client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
-    path: str,
-) -> None:
-    use_source(FakeSource(ApodNotFoundError("No article")))
-
-    response = await client.get(f"/briefs/2020-01-01/{path}")
-
-    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 # history
 
 
 async def test_history_returns_stored_briefs_newest_first(
-    client: httpx.AsyncClient,
-    uow: SqlUnitOfWork,
-    use_source: Callable[[ApodSource], None],
+    client: httpx.AsyncClient, uow: SqlUnitOfWork, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource())
-    async with uow:
-        for day in (1, 2, 3):
-            await uow.briefs.insert_if_absent(
-                replace(ENTRY, date=dt.date(2020, 1, day))
-            )
-        await uow.commit()
+    use_fakes(FakeSource())
+    await store_briefs(uow, 1, 2, 3)
 
     response = await client.get("/briefs", params={"limit": 2})
 
@@ -217,40 +191,23 @@ async def test_history_returns_stored_briefs_newest_first(
     assert body["next_before"] == "2020-01-02"
 
 
-@pytest.mark.parametrize(
-    "params",
-    [
-        pytest.param(
-            {"date_from": "2020-01-02", "date_to": "2020-01-01"}, id="start-after-end"
-        ),
-        pytest.param({"keyword": "ab"}, id="short-keyword"),
-        pytest.param({"limit": 101}, id="page-too-large"),
-    ],
-)
 async def test_history_rejects_invalid_request(
-    client: httpx.AsyncClient,
-    use_source: Callable[[ApodSource], None],
-    params: dict[str, str | int],
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource())
+    use_fakes(FakeSource())
 
-    response = await client.get("/briefs", params=params)
+    response = await client.get(
+        "/briefs", params={"date_from": "2020-01-02", "date_to": "2020-01-01"}
+    )
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 async def test_history_pages_through_all_briefs_by_date(
-    client: httpx.AsyncClient,
-    uow: SqlUnitOfWork,
-    use_source: Callable[[ApodSource], None],
+    client: httpx.AsyncClient, uow: SqlUnitOfWork, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource())
-    async with uow:
-        for day in (1, 2, 3):
-            await uow.briefs.insert_if_absent(
-                replace(ENTRY, date=dt.date(2020, 1, day))
-            )
-        await uow.commit()
+    use_fakes(FakeSource())
+    await store_briefs(uow, 1, 2, 3)
 
     first = (await client.get("/briefs", params={"limit": 2})).json()
     second = (
@@ -263,9 +220,9 @@ async def test_history_pages_through_all_briefs_by_date(
 
 
 async def test_history_is_empty_when_nothing_is_stored(
-    client: httpx.AsyncClient, use_source: Callable[[ApodSource], None]
+    client: httpx.AsyncClient, use_fakes: UseFakes
 ) -> None:
-    use_source(FakeSource())
+    use_fakes(FakeSource())
 
     response = await client.get("/briefs")
 

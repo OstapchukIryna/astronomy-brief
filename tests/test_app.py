@@ -11,5 +11,7 @@ async def test_app_starts_and_is_ready_with_real_database(app: FastAPI) -> None:
             transport=transport, base_url="http://test"
         ) as client:
             response = await client.get("/health/ready")
+            history = await client.get("/briefs")
 
     assert response.status_code == status.HTTP_200_OK
+    assert history.status_code == status.HTTP_200_OK
