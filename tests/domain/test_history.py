@@ -57,6 +57,19 @@ def test_accepts_keyword_at_length_limits(length: int) -> None:
 
 
 @pytest.mark.parametrize(
+    "keyword",
+    [
+        pytest.param("neb\x00ula", id="nul"),
+        pytest.param("neb\x07ula", id="bell"),
+        pytest.param("neb\tula", id="tab-inside"),
+    ],
+)
+def test_rejects_keyword_with_control_characters(keyword: str) -> None:
+    with pytest.raises(InvalidHistoryFilterError, match="control characters"):
+        HistoryFilter(keyword=keyword)
+
+
+@pytest.mark.parametrize(
     "limit",
     [pytest.param(0, id="empty-page"), pytest.param(101, id="page-too-large")],
 )

@@ -19,6 +19,7 @@ from app.domain.apod import (
 
 NASA_API_URL = "https://api.nasa.gov/planetary/apod"
 _PLACEHOLDER_TITLE = "NASA Science"
+_PLACEHOLDER_PATH = "/wp-content/themes/"  # the NASA logo
 
 
 class _ApodResponse(BaseModel):
@@ -53,7 +54,7 @@ class ApodApiClient:
                 f"API returned {response.status_code} for {date}"
             )
         data = _parse(response, date)
-        if data.title == _PLACEHOLDER_TITLE:
+        if data.title == _PLACEHOLDER_TITLE or _PLACEHOLDER_PATH in data.url:
             raise ApodBadResponseError(f"API returned placeholder data for {date}")
         if data.date != date:
             raise ApodBadResponseError(

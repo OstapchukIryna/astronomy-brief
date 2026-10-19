@@ -1,4 +1,5 @@
 import datetime as dt
+import unicodedata
 from dataclasses import dataclass
 
 from app.domain.apod import MediaType
@@ -37,6 +38,10 @@ class HistoryFilter:
                     f"The keyword must be {MIN_KEYWORD_LENGTH} to "
                     f"{MAX_KEYWORD_LENGTH} characters long"
                 )
+            if any(unicodedata.category(char) == "Cc" for char in keyword):
+                raise InvalidHistoryFilterError(
+                    "The keyword must not contain control characters"
+                )  # "Cc" stands for («Other, control») in Unicode
             object.__setattr__(self, "keyword", keyword)
 
 

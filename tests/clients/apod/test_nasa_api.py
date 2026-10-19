@@ -58,14 +58,18 @@ async def test_sends_date_and_api_key(
     assert params["api_key"] == "test-key"
 
 
+@pytest.mark.parametrize(
+    "title",
+    [pytest.param("NASA Science", id="by-title"), pytest.param("Other", id="by-url")],
+)
 async def test_rejects_placeholder_response(
     nasa_api: ApodApiClient,
     respx_mock: respx.MockRouter,
     read_fixture: Callable[[str], str],
+    title: str,
 ) -> None:
-    respx_mock.get(NASA_API_URL).respond(
-        200, json=json.loads(read_fixture("nasa_api_placeholder.json"))
-    )
+    body = json.loads(read_fixture("nasa_api_placeholder.json"))
+    respx_mock.get(NASA_API_URL).respond(200, json={**body, "title": title})
 
     with pytest.raises(ApodBadResponseError, match="placeholder"):
         await nasa_api.get_entry(BETELGEUSE_DATE)

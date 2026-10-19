@@ -26,7 +26,7 @@ _APOD_RESPONSES: Responses = {
     },
     status.HTTP_404_NOT_FOUND: {
         "model": ErrorResponse,
-        "description": "There is no APOD for this date",
+        "description": "There is no APOD for this date, or today's is not published yet",
     },
     status.HTTP_502_BAD_GATEWAY: {
         "model": ErrorResponse,
@@ -34,7 +34,7 @@ _APOD_RESPONSES: Responses = {
     },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
-        "description": "NASA is unavailable, try again later",
+        "description": "NASA or the database is unavailable, try again later",
     },
 }
 
@@ -56,7 +56,11 @@ _HISTORY_RESPONSES: Responses = {
     status.HTTP_400_BAD_REQUEST: {
         "model": ErrorResponse,
         "description": "The start date is after the end date, the keyword is not "
-        "3 to 100 characters long, or the page size is not 1 to 100",
+        "3 to 100 characters long, or the page size is not 1 to 100, or contains control characters",
+    },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ErrorResponse,
+        "description": "The database is unavailable, try again later",
     },
 }
 

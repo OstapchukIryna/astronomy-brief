@@ -1,10 +1,11 @@
 import datetime as dt
 from dataclasses import replace
-from typing import Protocol
+from typing import Protocol, Self
 
 import httpx
 import pytest
 from fastapi import FastAPI, status
+from sqlalchemy.exc import OperationalError
 
 from app.api.dependencies import get_container, get_unit_of_work
 from app.bootstrap import Container
@@ -22,6 +23,16 @@ from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 class UseFakes(Protocol):
     def __call__(self, source: ApodSource, llm: LlmClient | None = None) -> None: ...
+
+
+class BrokenUnitOfWork:
+    """A unit of work with which database can't be reached."""
+
+    async def __aenter__(self) -> Self:
+        raise OperationalError("SELECT 1", {}, ConnectionRefusedError("refused"))
+
+    async def __aexit__(self, *args: object) -> None:
+        pass
 
 
 @pytest.fixture
@@ -112,6 +123,20 @@ async def test_does_not_expose_internal_error_details(
     response = await client.get("/briefs/2020-01-01")
 
     assert "apod.nasa.gov" not in response.text
+
+
+async def test_returns_503_when_the_database_is_down(
+    app: FastAPI, client: httpx.AsyncClient, use_fakes: UseFakes
+) -> None:
+    use_fakes(FakeSource(ENTRY))
+    app.dependency_overrides[get_unit_of_work] = BrokenUnitOfWork
+
+    response = await client.get("/briefs/2020-01-01")
+
+    assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+    assert response.json()["detail"] == (
+        "The database is not available right now. Try again later."
+    )
 
 
 async def test_rejects_future_date(
