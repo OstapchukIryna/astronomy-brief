@@ -1,8 +1,13 @@
 """Shared test data and fakes for the APOD source and the LLM."""
 
 import datetime as dt
+from dataclasses import replace
+from types import TracebackType
+from typing import Self
 
 from app.domain.apod import ApodEntry, MediaType
+from app.domain.brief import Brief
+from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 
 DATE = dt.date(2020, 1, 1)
 ENTRY = ApodEntry(
@@ -53,3 +58,58 @@ class FakeLlm:
         if isinstance(self._facts, Exception):
             raise self._facts
         return self._facts
+
+
+class FakeBriefRepository:
+    """Keeps briefs in memory."""
+
+    def __init__(self) -> None:
+        self._briefs: dict[dt.date, Brief] = {}
+
+    async def get_by_date(self, date: dt.date) -> Brief | None:
+        return self._briefs.get(date)
+
+    async def insert_if_absent(self, entry: ApodEntry) -> None:
+        self._briefs.setdefault(entry.date, Brief(entry=entry))
+
+    async def set_explanation_if_absent(self, date: dt.date, text: str) -> None:
+        brief = self._briefs.get(date)
+        if brief is not None and brief.simple_explanation is None:
+            self._briefs[date] = replace(brief, simple_explanation=text)
+
+    async def set_facts_if_absent(self, date: dt.date, facts: list[str]) -> None:
+        brief = self._briefs.get(date)
+        if brief is not None and brief.facts is None:
+            self._briefs[date] = replace(brief, facts=facts)
+
+    async def list_summaries(
+        self, history_filter: HistoryFilter, page: PageRequest
+    ) -> HistoryPage:
+        raise NotImplementedError("History search is tested against the real database")
+
+
+class FakeUnitOfWork:
+    """In-memory unit of work without real rolling back.
+    It saves changes, counts commits, tracks open blocks."""
+
+    def __init__(self) -> None:
+        self.briefs = FakeBriefRepository()
+        self.commits = 0
+        self.in_transaction = False
+
+    async def __aenter__(self) -> Self:
+        assert not self.in_transaction, "Unit of work blocks must not be nested"
+        self.in_transaction = True
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.in_transaction = False
+
+    async def commit(self) -> None:
+        assert self.in_transaction, "commit() must be called inside a block"
+        self.commits += 1
