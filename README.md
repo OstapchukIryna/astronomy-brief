@@ -127,6 +127,13 @@ uv run uvicorn app.main:create_app --factory --reload
 
 Then open http://localhost:8000/docs.
 
+## Tests
+
+```bash
+docker compose exec db createdb -U astro astronomy_test
+uv run pytest
+```
+
 ## API
 
 | Method | Path | Description |
