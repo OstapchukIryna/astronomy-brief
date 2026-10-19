@@ -33,6 +33,10 @@ class ApodUnavailableError(ApodError):
     """The source is temporarily unavailable."""
 
 
+class ApodRateLimitedError(ApodUnavailableError):
+    """When NASA returned 429. That means, key's quata spent."""
+
+
 class ApodBadResponseError(ApodError):
     """The source responded, but received data is not what was expected."""
 
