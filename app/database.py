@@ -1,13 +1,10 @@
 import asyncio
 import logging
-from collections.abc import AsyncGenerator
-from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
-    AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
@@ -38,13 +35,3 @@ class Database:
 
 def get_database(request: Request) -> Database:
     return request.app.state.db
-
-
-async def get_session(
-    db: Annotated[Database, Depends(get_database)],
-) -> AsyncGenerator[AsyncSession]:
-    async with db.sessionmaker() as session:
-        yield session
-
-
-DbSession = Annotated[AsyncSession, Depends(get_session)]

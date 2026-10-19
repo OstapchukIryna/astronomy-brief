@@ -9,10 +9,12 @@ from alembic.config import Config
 from fastapi import FastAPI
 from sqlalchemy import Connection, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio.session import async_sessionmaker
 
 from app.config import get_settings
 from app.database import Database
 from app.main import create_app
+from app.repositories.unit_of_work import SqlUnitOfWork
 
 ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
 
@@ -82,3 +84,24 @@ async def database(migrated_database_url: str) -> AsyncIterator[Database]:
     db = Database(migrated_database_url)
     yield db
     await db.dispose()
+
+
+@pytest.fixture
+async def session_factory(
+    database: Database,
+) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
+    """A session factory with commits and rolled back after the test."""
+    async with database.engine.connect() as connection:
+        transaction = await connection.begin()
+        yield async_sessionmaker(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+            expire_on_commit=False,
+        )
+        await transaction.rollback()
+
+
+@pytest.fixture
+def uow(session_factory: async_sessionmaker[AsyncSession]) -> SqlUnitOfWork:
+    """A unit of work over the test session factory, rolled back after the test."""
+    return SqlUnitOfWork(session_factory)

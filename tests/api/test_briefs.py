@@ -5,10 +5,8 @@ from dataclasses import replace
 import httpx
 import pytest
 from fastapi import FastAPI, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.dependencies import get_apod_source, get_llm
-from app.database import get_session
+from app.api.dependencies import get_apod_source, get_llm, get_unit_of_work
 from app.domain.apod import (
     ApodBadResponseError,
     ApodNotFoundError,
@@ -16,14 +14,14 @@ from app.domain.apod import (
     ApodUnavailableError,
 )
 from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
-from app.repositories.brief import SqlBriefRepository
+from app.repositories.unit_of_work import SqlUnitOfWork
 from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
 
 
 @pytest.fixture
-def use_source(app: FastAPI, session: AsyncSession) -> Callable[[ApodSource], None]:
+def use_source(app: FastAPI, uow: SqlUnitOfWork) -> Callable[[ApodSource], None]:
     """Make the app use the test session and the given APOD source."""
-    app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_unit_of_work] = lambda: uow
 
     def _use(source: ApodSource) -> None:
         app.dependency_overrides[get_apod_source] = lambda: source
@@ -194,13 +192,16 @@ async def test_maps_source_errors_on_generated_endpoints(
 
 async def test_history_returns_stored_briefs_newest_first(
     client: httpx.AsyncClient,
-    session: AsyncSession,
+    uow: SqlUnitOfWork,
     use_source: Callable[[ApodSource], None],
 ) -> None:
     use_source(FakeSource())
-    briefs = SqlBriefRepository(session)
-    for day in (1, 2, 3):
-        await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
+    async with uow:
+        for day in (1, 2, 3):
+            await uow.briefs.insert_if_absent(
+                replace(ENTRY, date=dt.date(2020, 1, day))
+            )
+        await uow.commit()
 
     response = await client.get("/briefs", params={"limit": 2})
 
@@ -240,13 +241,16 @@ async def test_history_rejects_invalid_request(
 
 async def test_history_pages_through_all_briefs_by_date(
     client: httpx.AsyncClient,
-    session: AsyncSession,
+    uow: SqlUnitOfWork,
     use_source: Callable[[ApodSource], None],
 ) -> None:
     use_source(FakeSource())
-    briefs = SqlBriefRepository(session)
-    for day in (1, 2, 3):
-        await briefs.insert_if_absent(replace(ENTRY, date=dt.date(2020, 1, day)))
+    async with uow:
+        for day in (1, 2, 3):
+            await uow.briefs.insert_if_absent(
+                replace(ENTRY, date=dt.date(2020, 1, day))
+            )
+        await uow.commit()
 
     first = (await client.get("/briefs", params={"limit": 2})).json()
     second = (
