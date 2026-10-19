@@ -72,6 +72,24 @@ async def test_rejects_future_date_without_calling_source() -> None:
     assert source.calls == 0
 
 
+class OutsideTransactionSource:
+    """Fails the test if the service calls the source inside a transaction."""
+
+    def __init__(self, uow: FakeUnitOfWork) -> None:
+        self._uow = uow
+
+    async def get_entry(self, date: dt.date) -> ApodEntry:
+        assert not self._uow.in_transaction, "Source was called inside a transaction"
+        return ENTRY
+
+
+async def test_calls_source_outside_transaction() -> None:
+    uow = FakeUnitOfWork()
+    service = make_service(uow, source=OutsideTransactionSource(uow))
+
+    assert await service.get_entry(DATE) == ENTRY
+
+
 class RacingSource:
     """Saves an entry like a concurrent request would, then returns another one."""
 
@@ -190,3 +208,27 @@ async def test_returns_facts_saved_by_concurrent_request() -> None:
     service = make_service(uow, llm=RacingLlm(uow.briefs))
 
     assert await service.get_facts(DATE) == ["Saved by another request."]
+
+
+# после блока get_facts
+class OutsideTransactionLlm:
+    """Fails the test if the service calls the LLM inside a transaction."""
+
+    def __init__(self, uow: FakeUnitOfWork) -> None:
+        self._uow = uow
+
+    async def explain(self, entry: ApodEntry) -> str:
+        assert not self._uow.in_transaction, "LLM was called inside a transaction"
+        return "A star is fading."
+
+    async def extract_facts(self, entry: ApodEntry) -> list[str]:
+        assert not self._uow.in_transaction, "LLM was called inside a transaction"
+        return list(FACTS)
+
+
+async def test_calls_llm_outside_transaction() -> None:
+    uow = await uow_with_entry()
+    service = make_service(uow, llm=OutsideTransactionLlm(uow))
+
+    assert await service.get_explanation(DATE) == "A star is fading."
+    assert await service.get_facts(DATE) == FACTS
