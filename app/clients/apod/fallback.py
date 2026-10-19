@@ -3,7 +3,7 @@
 import datetime as dt
 import logging
 
-from app.domain.apod import ApodEntry, ApodError, ApodSource
+from app.domain.apod import ApodEntry, ApodError, ApodSource, ApodUnavailableError
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +22,24 @@ class FallbackApodSource:
     async def get_entry(self, date: dt.date) -> ApodEntry:
         """Return the entry from the first source that has it.
 
-        If a source fails, log a warning and try the next one.
-        If the last source fails too, its error propagates.
+        If every source fails, raise ApodUnavailableError if any source was unavailable,
+        since a retry may find the entry, otherwise raise the last source's error.
         """
-        *fallible, last = self._sources
-        for source in fallible:
+        errors: list[ApodError] = []
+
+        for source in self._sources:
             try:
                 return await source.get_entry(date)
             except ApodError as error:
                 logger.warning(
-                    "APOD source %s failed for %s, trying the next one: %s",
+                    "APOD source %s failed for %s: %s",
                     type(source).__name__,
                     date,
                     error,
                 )
-        return await last.get_entry(date)
+                errors.append(error)
+
+        unavailable = next(
+            (error for error in errors if isinstance(error, ApodUnavailableError)), None
+        )
+        raise unavailable or errors[-1]

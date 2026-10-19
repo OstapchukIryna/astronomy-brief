@@ -50,6 +50,16 @@ async def test_raises_last_error_when_all_sources_fail() -> None:
         FakeSource(ApodNotFoundError("No article")),
     )
 
+    with pytest.raises(ApodUnavailableError, match="API is down"):
+        await source.get_entry(DATE)
+
+
+async def test_raises_last_error_when_no_source_was_unavailable() -> None:
+    source = FallbackApodSource(
+        FakeSource(ApodBadResponseError("placeholder data")),
+        FakeSource(ApodNotFoundError("No article")),
+    )
+
     with pytest.raises(ApodNotFoundError, match="No article"):
         await source.get_entry(DATE)
 
