@@ -1,7 +1,7 @@
 import httpx
 from fastapi import FastAPI, status
 
-from app.database import get_database
+from app.api.dependencies import get_database
 
 
 class FakeDatabase:
