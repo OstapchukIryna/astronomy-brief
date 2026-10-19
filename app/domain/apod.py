@@ -33,6 +33,10 @@ class ApodUnavailableError(ApodError):
     """The source is temporarily unavailable."""
 
 
+class ApodRateLimitedError(ApodUnavailableError):
+    """The source refused the request because the API key's quota is spent."""
+
+
 class ApodBadResponseError(ApodError):
     """The source responded, but received data is not what was expected."""
 

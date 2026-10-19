@@ -18,6 +18,7 @@ from app.domain.apod import (
     ApodBadResponseError,
     ApodEntry,
     ApodNotFoundError,
+    ApodRateLimitedError,
     ApodUnavailableError,
 )
 
@@ -77,6 +78,7 @@ class ApodArchiveClient:
             what=f"Archive request {url}",
             unavailable=ApodUnavailableError,
             bad_response=ApodBadResponseError,
+            rate_limited=ApodRateLimitedError,
         )
 
 

@@ -9,6 +9,7 @@ import httpx
 from app.clients.apod.archive import ApodArchiveClient
 from app.clients.apod.fallback import FallbackApodSource
 from app.clients.apod.nasa_api import ApodApiClient
+from app.clients.apod.retrying import RetryingApodSource
 from app.clients.llm.openai_compatible import OpenAICompatibleLlmClient
 from app.config import Settings
 from app.database import Database
@@ -39,10 +40,12 @@ async def build_container(settings: Settings) -> AsyncGenerator[Container]:
             yield Container(
                 db=db,
                 apod_source=FallbackApodSource(
-                    ApodApiClient(
-                        http, api_key=settings.nasa_api_key.get_secret_value()
+                    RetryingApodSource(
+                        ApodApiClient(
+                            http, api_key=settings.nasa_api_key.get_secret_value()
+                        )
                     ),
-                    ApodArchiveClient(http),
+                    RetryingApodSource(ApodArchiveClient(http)),
                 ),
                 llm=_build_llm(llm_http, settings),
             )

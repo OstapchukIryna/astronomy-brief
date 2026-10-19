@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import InterfaceError, OperationalError
 
 from app.domain.apod import (
     ApodBadResponseError,
@@ -41,7 +42,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         ApodNotFoundError,
         _external_error_handler(
-            status.HTTP_404_NOT_FOUND, "There is no APOD for this date."
+            status.HTTP_404_NOT_FOUND,
+            "There is no APOD for this date. Today's picture may not be published yet.",
         ),
     )
     app.add_exception_handler(
@@ -71,6 +73,13 @@ def register_exception_handlers(app: FastAPI) -> None:
             "The language model returned an answer we couldn't use.",
         ),
     )
+
+    database_unavailable = _external_error_handler(
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "The database is not available right now. Try again later.",
+    )
+    app.add_exception_handler(OperationalError, database_unavailable)
+    app.add_exception_handler(InterfaceError, database_unavailable)
 
     app.add_exception_handler(InvalidApodDateError, _handle_invalid_request)
     app.add_exception_handler(InvalidHistoryFilterError, _handle_invalid_request)

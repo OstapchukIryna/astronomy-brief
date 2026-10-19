@@ -7,7 +7,12 @@ import pytest
 import respx
 
 from app.clients.apod.nasa_api import NASA_API_URL, ApodApiClient
-from app.domain.apod import ApodBadResponseError, ApodUnavailableError, MediaType
+from app.domain.apod import (
+    ApodBadResponseError,
+    ApodRateLimitedError,
+    ApodUnavailableError,
+    MediaType,
+)
 
 BETELGEUSE_DATE = dt.date(2020, 1, 1)
 _VALID_URL = "https://assets.science.nasa.gov/content/dam/science/cds/apod/apod/2020/january/BetelgeuseImagined_EsoCalcada_2662.jpg"
@@ -53,14 +58,18 @@ async def test_sends_date_and_api_key(
     assert params["api_key"] == "test-key"
 
 
+@pytest.mark.parametrize(
+    "title",
+    [pytest.param("NASA Science", id="by-title"), pytest.param("Other", id="by-url")],
+)
 async def test_rejects_placeholder_response(
     nasa_api: ApodApiClient,
     respx_mock: respx.MockRouter,
     read_fixture: Callable[[str], str],
+    title: str,
 ) -> None:
-    respx_mock.get(NASA_API_URL).respond(
-        200, json=json.loads(read_fixture("nasa_api_placeholder.json"))
-    )
+    body = json.loads(read_fixture("nasa_api_placeholder.json"))
+    respx_mock.get(NASA_API_URL).respond(200, json={**body, "title": title})
 
     with pytest.raises(ApodBadResponseError, match="placeholder"):
         await nasa_api.get_entry(BETELGEUSE_DATE)
@@ -87,6 +96,9 @@ async def test_rejects_entry_for_another_date(
         ),
         pytest.param(
             403, "nasa_api_error_403.json", ApodBadResponseError, id="invalid-key"
+        ),
+        pytest.param(
+            429, "nasa_api_error_429.json", ApodRateLimitedError, id="rate-limited"
         ),
     ],
 )

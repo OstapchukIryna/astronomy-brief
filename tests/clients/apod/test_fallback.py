@@ -1,25 +1,12 @@
-import datetime as dt
-
 import pytest
 
 from app.clients.apod.fallback import FallbackApodSource
 from app.domain.apod import (
     ApodBadResponseError,
-    ApodEntry,
     ApodNotFoundError,
     ApodUnavailableError,
-    MediaType,
 )
-from tests.fakes import FakeSource
-
-DATE = dt.date(2020, 1, 1)
-ENTRY = ApodEntry(
-    date=DATE,
-    title="Betelgeuse Imagined",
-    explanation="Why is Betelgeuse fading?",
-    media_type=MediaType.IMAGE,
-    url="https://example.com/betelgeuse.jpg",
-)
+from tests.fakes import DATE, ENTRY, FakeSource
 
 
 async def test_returns_entry_from_first_source_without_asking_the_next() -> None:
@@ -44,7 +31,7 @@ async def test_falls_back_when_first_source_fails() -> None:
     assert entry == ENTRY
 
 
-async def test_raises_last_error_when_all_sources_fail() -> None:
+async def test_reports_unavailable_when_any_source_was_unavailable() -> None:
     source = FallbackApodSource(
         FakeSource(ApodUnavailableError("API is down")),
         FakeSource(ApodNotFoundError("No article")),
