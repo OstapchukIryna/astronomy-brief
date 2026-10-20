@@ -3,7 +3,6 @@ from collections.abc import Awaitable, Callable
 
 from app.domain.apod import ApodEntry
 from app.domain.brief import Brief, BriefRepository
-from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 from app.domain.llm import LlmClient
 from app.domain.unit_of_work import UnitOfWork
 from app.services.entries import EntryStore
@@ -39,13 +38,6 @@ class BriefService:
             generate=self._llm.extract_facts,
             save=lambda briefs, facts: briefs.set_facts_if_absent(date, facts),
         )
-
-    async def list_history(
-        self, history_filter: HistoryFilter, page: PageRequest
-    ) -> HistoryPage:
-        """Return one page of stored briefs that match the filter."""
-        async with self._uow:
-            return await self._uow.briefs.list_summaries(history_filter, page)
 
     async def _generate_once[T](
         self,

@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.bootstrap import Container
 from app.database import Database
@@ -26,19 +27,28 @@ def get_database(container: ContainerDep) -> Database:
 DbDep = Annotated[Database, Depends(get_database)]
 
 
+def get_session_factory(db: DbDep) -> async_sessionmaker[AsyncSession]:
+    return db.sessionmaker
+
+
+SessionFactoryDep = Annotated[
+    async_sessionmaker[AsyncSession], Depends(get_session_factory)
+]
+
+
+def get_unit_of_work(session_factory: SessionFactoryDep) -> UnitOfWork:
+    return SqlUnitOfWork(session_factory)
+
+
+UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
+
+
 def get_apod_source(container: ContainerDep) -> ApodSource:
     return container.apod_source
 
 
 def get_llm(container: ContainerDep) -> LlmClient:
     return container.llm
-
-
-def get_unit_of_work(db: DbDep) -> UnitOfWork:
-    return SqlUnitOfWork(db.sessionmaker)
-
-
-UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
 
 
 def get_entry_store(

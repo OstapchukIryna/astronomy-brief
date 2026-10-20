@@ -3,7 +3,8 @@ from typing import Any
 
 from fastapi import APIRouter, status
 
-from app.api.dependencies import BriefServiceDep
+from app import views
+from app.api.dependencies import BriefServiceDep, SessionFactoryDep
 from app.domain.history import HistoryFilter, PageRequest
 from app.schemas.brief import (
     BriefResponse,
@@ -66,7 +67,7 @@ _HISTORY_RESPONSES: Responses = {
 
 @router.get("", responses=_HISTORY_RESPONSES)
 async def list_history(
-    service: BriefServiceDep,
+    session_factory: SessionFactoryDep,
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
     keyword: str | None = None,
@@ -77,7 +78,8 @@ async def list_history(
 
     Only briefs that someone has already requested are stored.
     """
-    page = await service.list_history(
+    page = await views.list_history(
+        session_factory,
         HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
         PageRequest(limit=limit, before=before),
     )

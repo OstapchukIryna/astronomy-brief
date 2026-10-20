@@ -7,7 +7,6 @@ from typing import Self
 
 from app.domain.apod import ApodEntry, MediaType
 from app.domain.brief import Brief
-from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 
 DATE = dt.date(2020, 1, 1)
 ENTRY = ApodEntry(
@@ -81,11 +80,6 @@ class FakeBriefRepository:
         brief = self._briefs.get(date)
         if brief is not None and brief.facts is None:
             self._briefs[date] = replace(brief, facts=facts)
-
-    async def list_summaries(
-        self, history_filter: HistoryFilter, page: PageRequest
-    ) -> HistoryPage:
-        raise NotImplementedError("History search is tested against the real database")
 
 
 class FakeUnitOfWork:
