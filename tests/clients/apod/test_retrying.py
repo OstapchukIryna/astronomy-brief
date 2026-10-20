@@ -67,3 +67,7 @@ async def test_does_not_retry_errors_a_retry_cannot_fix(error: Exception) -> Non
         await retrying(inner).get_entry(DATE)
     assert caught.value is error
     assert inner.calls == 1
+
+
+def test_names_the_source_it_retries() -> None:
+    assert repr(retrying(FlakySource())) == "FlakySource with retries"

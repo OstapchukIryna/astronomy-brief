@@ -36,12 +36,7 @@ class FallbackApodSource:
             try:
                 return await source.get_entry(date)
             except ApodError as error:
-                logger.warning(
-                    "APOD source %s failed for %s: %s",
-                    type(source).__name__,
-                    date,
-                    error,
-                )
+                logger.warning("APOD source %r failed for %s: %s", source, date, error)
                 errors.append(error)
 
         for kind in (ApodUnavailableError, ApodBadResponseError):

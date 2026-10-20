@@ -58,19 +58,18 @@ Routers deal only with HTTP and check the input types, while rules for the input
 The service layer contains the business logic.
 NASA and the LLM each have their own client. Each client converts what the outside API returns into the app's own types.
 
-### Archive decision
+### Two sources
 
-NASA's official APOD API currently returns placeholder data for every date, so the app uses two sources:
+NASA's official APOD API returns placeholder data for many dates. This app uses two sources:
 
 ```mermaid
 flowchart LR
     svc[BriefService] --> fb[FallbackApodSource]
     fb -->|first| api[Official API client<br/>rejects placeholder data]
-    fb -->|second| arc[Archive client<br/>follows the redirect, parses the article]
+    fb -->|second| art[Article client<br/>finds the day's article, parses it]
     api --> nasaapi[[api.nasa.gov]]
-    arc --> nasaarc[[apod.nasa.gov → science.nasa.gov]]
+    art --> nasasci[[science.nasa.gov REST API]]
 ```
-
 
 ### Lazy generation
 
