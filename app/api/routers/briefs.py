@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, status
 
 from app.api.dependencies import BriefServiceDep
-from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
+from app.domain.history import HistoryFilter, PageRequest
 from app.schemas.brief import (
     BriefResponse,
     BriefSummaryResponse,
@@ -79,14 +79,11 @@ async def list_history(
     """
     page = await service.list_history(
         HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
-        PageRequest(
-            limit=limit,
-            after=HistoryCursor(date=before) if before is not None else None,
-        ),
+        PageRequest(limit=limit, before=before),
     )
     return HistoryResponse(
         items=[BriefSummaryResponse.model_validate(item) for item in page.items],
-        next_before=page.next_cursor.date if page.next_cursor is not None else None,
+        next_before=page.next_before,
     )
 
 

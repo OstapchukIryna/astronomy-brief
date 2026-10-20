@@ -46,18 +46,11 @@ class HistoryFilter:
 
 
 @dataclass(frozen=True, slots=True)
-class HistoryCursor:
-    """Where the previous page ended: the date of its last brief."""
-
-    date: dt.date
-
-
-@dataclass(frozen=True, slots=True)
 class PageRequest:
-    """Which part of the result to return."""
+    """Which part of the result have to be returned. Up to `limit` briefs dated before `before`."""
 
     limit: int
-    after: HistoryCursor | None = None
+    before: dt.date | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.limit <= MAX_PAGE_SIZE:
@@ -78,7 +71,7 @@ class BriefSummary:
 
 @dataclass(frozen=True, slots=True)
 class HistoryPage:
-    """One page of history and check if there is a next one."""
+    """One page of history and the date as a cursor."""
 
     items: tuple[BriefSummary, ...]
-    next_cursor: HistoryCursor | None
+    next_before: dt.date | None

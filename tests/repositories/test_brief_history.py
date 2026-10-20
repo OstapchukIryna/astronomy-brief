@@ -4,7 +4,7 @@ from dataclasses import replace
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
+from app.domain.history import HistoryFilter, PageRequest
 from app.repositories.brief import SqlBriefRepository
 from tests.fakes import ENTRY
 
@@ -74,18 +74,18 @@ async def test_search_results_come_newest_first(session: AsyncSession) -> None:
     assert [item.date for item in page.items] == [JAN_3, JAN_1]
 
 
-async def test_gives_next_cursor_only_when_there_is_a_next_page(
+async def test_gives_next_before_only_when_there_is_a_next_page(
     session: AsyncSession,
 ) -> None:
     briefs = await store(session, (JAN_1, "One"), (JAN_2, "Two"), (JAN_3, "Three"))
 
     first = await briefs.list_summaries(ALL, PageRequest(limit=2))
     last = await briefs.list_summaries(
-        ALL, PageRequest(limit=2, after=first.next_cursor)
+        ALL, PageRequest(limit=2, before=first.next_before)
     )
 
-    assert first.next_cursor == HistoryCursor(date=JAN_2)
-    assert last.next_cursor is None
+    assert first.next_before == JAN_2
+    assert last.next_before is None
 
 
 async def test_keyword_search_does_not_depend_on_server_threshold(
@@ -109,7 +109,7 @@ async def test_next_page_skips_nothing_and_repeats_nothing_after_new_saves(
     await store(session, (JAN_5, "Five"))
 
     second = await briefs.list_summaries(
-        ALL, PageRequest(limit=2, after=first.next_cursor)
+        ALL, PageRequest(limit=2, before=first.next_before)
     )
 
     assert [item.date for item in second.items] == [JAN_2, JAN_1]

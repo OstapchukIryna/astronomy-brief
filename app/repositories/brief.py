@@ -9,7 +9,6 @@ from app.domain.brief import Brief
 from app.domain.history import (
     KEYWORD_SIMILARITY_THRESHOLD,
     BriefSummary,
-    HistoryCursor,
     HistoryFilter,
     HistoryPage,
     PageRequest,
@@ -109,8 +108,8 @@ class SqlBriefRepository:
             statement = statement.where(
                 keyword.op("<%", is_comparison=True)(BriefRecord.title)
             )
-        if page.after is not None:
-            statement = statement.where(BriefRecord.date < page.after.date)
+        if page.before is not None:
+            statement = statement.where(BriefRecord.date < page.before)
         statement = (
             statement.order_by(BriefRecord.date.desc()).limit(
                 page.limit + 1
@@ -123,5 +122,5 @@ class SqlBriefRepository:
             for date, title, media_type, url in rows[: page.limit]
         )
         has_more = len(rows) > page.limit
-        next_cursor = HistoryCursor(date=items[-1].date) if has_more else None
-        return HistoryPage(items=items, next_cursor=next_cursor)
+        next_before = items[-1].date if has_more else None
+        return HistoryPage(items=items, next_before=next_before)
