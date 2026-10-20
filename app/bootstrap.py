@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from app.clients.apod.archive import ApodArchiveClient
+from app.clients.apod.article import ApodArticleClient
 from app.clients.apod.fallback import FallbackApodSource
 from app.clients.apod.nasa_api import ApodApiClient
 from app.clients.apod.retrying import RetryingApodSource
@@ -45,7 +45,7 @@ async def build_container(settings: Settings) -> AsyncGenerator[Container]:
                             http, api_key=settings.nasa_api_key.get_secret_value()
                         )
                     ),
-                    RetryingApodSource(ApodArchiveClient(http)),
+                    RetryingApodSource(ApodArticleClient(http)),
                 ),
                 llm=_build_llm(llm_http, settings),
             )

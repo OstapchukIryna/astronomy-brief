@@ -12,6 +12,7 @@ from app.clients.http import send
 from app.domain.apod import (
     ApodBadResponseError,
     ApodEntry,
+    ApodNotFoundError,
     ApodRateLimitedError,
     ApodUnavailableError,
     MediaType,
@@ -44,11 +45,14 @@ class ApodApiClient:
     async def get_entry(self, date: dt.date) -> ApodEntry:
         """Return the APOD entry for given date.
 
-        Raise ApodUnavailableError if the API can't be reached or is overloaded,
+        Raise ApodNotFoundError if the API has no entry for the date yet,
+        ApodUnavailableError if the API can't be reached or is overloaded,
         ApodBadResponseError if it answers with an error, a malformed body
         or placeholder data.
         """
         response = await self._get(date)
+        if response.status_code == httpx.codes.BAD_REQUEST:
+            raise ApodNotFoundError(f"API has no entry for {date} yet")
         if response.status_code != httpx.codes.OK:
             raise ApodBadResponseError(
                 f"API returned {response.status_code} for {date}"

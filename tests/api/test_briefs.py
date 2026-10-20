@@ -115,14 +115,14 @@ async def test_does_not_expose_internal_error_details(
     use_fakes(
         FakeSource(
             ApodUnavailableError(
-                "Archive returned 503: https://apod.nasa.gov/apod/ap200101.html"
+                "Article request https://science.nasa.gov/image-article/... returned 503"
             )
         )
     )
 
     response = await client.get("/briefs/2020-01-01")
 
-    assert "apod.nasa.gov" not in response.text
+    assert "science.nasa.gov" not in response.text
 
 
 async def test_returns_503_when_the_database_is_down(

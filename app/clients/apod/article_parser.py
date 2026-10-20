@@ -9,6 +9,8 @@ _WHITESPACE = re.compile(r"\s+")
 _SPACE_BEFORE_PUNCTUATION = re.compile(r"\s+([,.;:!?)])")
 _SPACE_AFTER_OPEN_PAREN = re.compile(r"\(\s+")
 _CREDIT_LABEL = re.compile(r"^[\w\s&]*Credit[\w\s&]*:\s*")
+# NASA pages sometimes repeat the label
+_EXPLANATION_LABELS = re.compile(r"^(?:Explanation:\s*)+")
 
 _HERO = ".hds-media-detail-hero"
 _MEDIA = ".media-detail-hero__media"
@@ -65,17 +67,19 @@ def _parse_explanation(description: Tag) -> str:
     """Return the explanation text without the label and the editorial tail."""
     main_part = str(description).split("<br/><br/>", maxsplit=1)[0]
     text = _normalize_spaces(BeautifulSoup(main_part, "html.parser").get_text())
-    return text.removeprefix("Explanation:").strip()
+    return _EXPLANATION_LABELS.sub("", text)
 
 
 def _meta_value(hero: Tag, label: str) -> str | None:
-    """Return the value of a row in the metadata, or None if there is no such row."""
+    """Return the value of a row in the metadata, or None if there is no such row.
+
+    Labels match with or without a trailing colon."""
     for row in hero.select(_META_ROW):
         header = row.select_one("th")
         value = row.select_one("td")
         if header is None or value is None:
             continue
-        if header.get_text(strip=True) == label:
+        if header.get_text(strip=True).removesuffix(":") == label:
             return _normalize_spaces(value.get_text())
     return None
 

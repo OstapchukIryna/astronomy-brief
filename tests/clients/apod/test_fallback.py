@@ -3,6 +3,7 @@ import pytest
 from app.clients.apod.fallback import FallbackApodSource
 from app.domain.apod import (
     ApodBadResponseError,
+    ApodError,
     ApodNotFoundError,
     ApodUnavailableError,
 )
@@ -41,13 +42,35 @@ async def test_reports_unavailable_when_any_source_was_unavailable() -> None:
         await source.get_entry(DATE)
 
 
-async def test_raises_last_error_when_no_source_was_unavailable() -> None:
+@pytest.mark.parametrize(
+    "errors",
+    [
+        pytest.param(
+            (ApodBadResponseError("placeholder data"), ApodNotFoundError("No article")),
+            id="bad-response-first",
+        ),
+        pytest.param(
+            (ApodNotFoundError("No article"), ApodBadResponseError("placeholder data")),
+            id="bad-response-last",
+        ),
+    ],
+)
+async def test_reports_bad_response_over_not_found(
+    errors: tuple[ApodError, ApodError],
+) -> None:
+    source = FallbackApodSource(*(FakeSource(error) for error in errors))
+
+    with pytest.raises(ApodBadResponseError, match="placeholder data"):
+        await source.get_entry(DATE)
+
+
+async def test_reports_not_found_only_when_every_source_has_no_entry() -> None:
     source = FallbackApodSource(
-        FakeSource(ApodBadResponseError("placeholder data")),
+        FakeSource(ApodNotFoundError("No API entry")),
         FakeSource(ApodNotFoundError("No article")),
     )
 
-    with pytest.raises(ApodNotFoundError, match="No article"):
+    with pytest.raises(ApodNotFoundError):
         await source.get_entry(DATE)
 
 

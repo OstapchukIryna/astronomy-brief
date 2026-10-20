@@ -44,3 +44,6 @@ class RetryingApodSource:
             with attempt:
                 return await self._inner.get_entry(date)
         raise AssertionError("unreachable")  # pragma: no cover
+
+    def __repr__(self) -> str:
+        return f"{type(self._inner).__name__} with retries"
