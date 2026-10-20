@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from app.domain.apod import ApodEntry
-from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,7 +22,3 @@ class BriefRepository(Protocol):
     async def set_explanation_if_absent(self, date: dt.date, text: str) -> None: ...
 
     async def set_facts_if_absent(self, date: dt.date, facts: list[str]) -> None: ...
-
-    async def list_summaries(
-        self, history_filter: HistoryFilter, page: PageRequest
-    ) -> HistoryPage: ...

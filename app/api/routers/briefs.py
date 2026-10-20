@@ -3,8 +3,9 @@ from typing import Any
 
 from fastapi import APIRouter, status
 
-from app.api.dependencies import BriefServiceDep
-from app.domain.history import HistoryCursor, HistoryFilter, PageRequest
+from app import views
+from app.api.dependencies import BriefServiceDep, SessionFactoryDep
+from app.domain.history import HistoryFilter, PageRequest
 from app.schemas.brief import (
     BriefResponse,
     BriefSummaryResponse,
@@ -66,7 +67,7 @@ _HISTORY_RESPONSES: Responses = {
 
 @router.get("", responses=_HISTORY_RESPONSES)
 async def list_history(
-    service: BriefServiceDep,
+    session_factory: SessionFactoryDep,
     date_from: dt.date | None = None,
     date_to: dt.date | None = None,
     keyword: str | None = None,
@@ -77,16 +78,14 @@ async def list_history(
 
     Only briefs that someone has already requested are stored.
     """
-    page = await service.list_history(
+    page = await views.list_history(
+        session_factory,
         HistoryFilter(date_from=date_from, date_to=date_to, keyword=keyword),
-        PageRequest(
-            limit=limit,
-            after=HistoryCursor(date=before) if before is not None else None,
-        ),
+        PageRequest(limit=limit, before=before),
     )
     return HistoryResponse(
         items=[BriefSummaryResponse.model_validate(item) for item in page.items],
-        next_before=page.next_cursor.date if page.next_cursor is not None else None,
+        next_before=page.next_before,
     )
 
 
