@@ -9,6 +9,7 @@ from app.domain.llm import LlmClient
 from app.domain.unit_of_work import UnitOfWork
 from app.repositories.unit_of_work import SqlUnitOfWork
 from app.services.brief import BriefService
+from app.services.entries import EntryStore
 
 
 def get_container(request: Request) -> Container:
@@ -37,12 +38,22 @@ def get_unit_of_work(db: DbDep) -> UnitOfWork:
     return SqlUnitOfWork(db.sessionmaker)
 
 
-def get_brief_service(
-    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
+UnitOfWorkDep = Annotated[UnitOfWork, Depends(get_unit_of_work)]
+
+
+def get_entry_store(
+    uow: UnitOfWorkDep,
     source: Annotated[ApodSource, Depends(get_apod_source)],
+) -> EntryStore:
+    return EntryStore(uow, source)
+
+
+def get_brief_service(
+    uow: UnitOfWorkDep,
+    entries: Annotated[EntryStore, Depends(get_entry_store)],
     llm: Annotated[LlmClient, Depends(get_llm)],
 ) -> BriefService:
-    return BriefService(uow, source, llm)
+    return BriefService(uow, entries, llm)
 
 
 BriefServiceDep = Annotated[BriefService, Depends(get_brief_service)]

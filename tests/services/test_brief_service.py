@@ -8,6 +8,7 @@ from app.domain.brief import BriefRepository
 from app.domain.dates import InvalidApodDateError
 from app.domain.llm import LlmClient, LlmUnavailableError
 from app.services.brief import BriefService
+from app.services.entries import EntryStore
 from tests.fakes import DATE, ENTRY, FACTS, FakeLlm, FakeSource, FakeUnitOfWork
 
 
@@ -23,9 +24,8 @@ def make_service(
     source: ApodSource | None = None,
     llm: LlmClient | None = None,
 ) -> BriefService:
-    return BriefService(
-        uow or FakeUnitOfWork(), source or FakeSource(), llm or FakeLlm()
-    )
+    uow = uow or FakeUnitOfWork()
+    return BriefService(uow, EntryStore(uow, source or FakeSource()), llm or FakeLlm())
 
 
 # get_entry

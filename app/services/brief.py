@@ -1,25 +1,25 @@
 import datetime as dt
 from collections.abc import Awaitable, Callable
 
-from app.domain.apod import ApodEntry, ApodSource
+from app.domain.apod import ApodEntry
 from app.domain.brief import Brief, BriefRepository
-from app.domain.dates import apod_today, ensure_valid_apod_date
 from app.domain.history import HistoryFilter, HistoryPage, PageRequest
 from app.domain.llm import LlmClient
 from app.domain.unit_of_work import UnitOfWork
+from app.services.entries import EntryStore
 
 
 class BriefService:
     """Get APOD entries, generate their explanations and facts once, and list the stored history."""
 
-    def __init__(self, uow: UnitOfWork, source: ApodSource, llm: LlmClient) -> None:
+    def __init__(self, uow: UnitOfWork, entries: EntryStore, llm: LlmClient) -> None:
         self._uow = uow
-        self._source = source
+        self._entries = entries
         self._llm = llm
 
     async def get_entry(self, date: dt.date) -> ApodEntry:
         """Return the APOD entry for the valid date, fetching and saving it."""
-        brief = await self._get_or_create(date)
+        brief = await self._entries.get_or_create(date)
         return brief.entry
 
     async def get_explanation(self, date: dt.date) -> str:
@@ -59,7 +59,7 @@ class BriefService:
 
         If a concurrent request saved its value first, that value wins and is returned.
         """
-        brief = await self._get_or_create(date)
+        brief = await self._entries.get_or_create(date)
         if (value := stored(brief)) is not None:
             return value
 
@@ -73,24 +73,3 @@ class BriefService:
         value = stored(brief)
         assert value is not None, f"Generated value for {date} must be stored"
         return value
-
-    async def _get_or_create(self, date: dt.date) -> Brief:
-        """Return the stored brief for the valid date, fetching and saving it on first request.
-
-        Concurrent requests for the same new date end up with the same stored brief.
-        """
-        ensure_valid_apod_date(date, today=apod_today())
-        async with self._uow:
-            brief = await self._uow.briefs.get_by_date(date)
-        if brief is not None:
-            return brief
-
-        entry = await self._source.get_entry(date)
-
-        async with self._uow:
-            await self._uow.briefs.insert_if_absent(entry)
-            brief = await self._uow.briefs.get_by_date(date)
-            await self._uow.commit()
-
-        assert brief is not None, f"Brief for {date} must exist after insert"
-        return brief
