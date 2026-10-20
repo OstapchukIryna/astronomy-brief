@@ -47,7 +47,7 @@ class HistoryFilter:
 
 @dataclass(frozen=True, slots=True)
 class PageRequest:
-    """Which part of the result have to be returned. Up to `limit` briefs dated before `before`."""
+    """Which part of the result to return. Up to `limit` briefs dated before `before`."""
 
     limit: int
     before: dt.date | None = None
@@ -71,7 +71,7 @@ class BriefSummary:
 
 @dataclass(frozen=True, slots=True)
 class HistoryPage:
-    """One page of history and the date as a cursor."""
+    """One page of history and the date to ask the next page before."""
 
     items: tuple[BriefSummary, ...]
     next_before: dt.date | None
