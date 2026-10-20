@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class FallbackApodSource:
-    """Try APOD sources in order and return the first occured entry."""
+    """Try APOD sources in order and return the entry from the first one that has it."""
 
     def __init__(self, *sources: ApodSource) -> None:
         if not sources:

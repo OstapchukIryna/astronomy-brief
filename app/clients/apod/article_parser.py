@@ -9,9 +9,8 @@ _WHITESPACE = re.compile(r"\s+")
 _SPACE_BEFORE_PUNCTUATION = re.compile(r"\s+([,.;:!?)])")
 _SPACE_AFTER_OPEN_PAREN = re.compile(r"\(\s+")
 _CREDIT_LABEL = re.compile(r"^[\w\s&]*Credit[\w\s&]*:\s*")
-_EXPLANATION_LABELS = re.compile(
-    r"^(?:Explanation:\s*)+"
-)  # NASA pages sometimes repeat the label
+# NASA pages sometimes repeat the label
+_EXPLANATION_LABELS = re.compile(r"^(?:Explanation:\s*)+")
 
 _HERO = ".hds-media-detail-hero"
 _MEDIA = ".media-detail-hero__media"

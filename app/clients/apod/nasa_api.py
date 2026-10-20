@@ -46,7 +46,7 @@ class ApodApiClient:
         """Return the APOD entry for given date.
 
         Raise ApodNotFoundError if the API has no entry for the date yet,
-        Raise ApodUnavailableError if the API can't be reached or is overloaded,
+        ApodUnavailableError if the API can't be reached or is overloaded,
         ApodBadResponseError if it answers with an error, a malformed body
         or placeholder data.
         """

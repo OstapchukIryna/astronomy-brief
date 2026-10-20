@@ -79,8 +79,8 @@ class ApodArticleClient:
         self, url: str, *, params: dict[str, str] | None = None
     ) -> httpx.Response:
         return await send(
-            lambda: self._http.get(url, params=params),
-            what=f"Archive request {url}",
+            lambda: self._http.get(url, params=params, follow_redirects=True),
+            what=f"Article request {url}",
             unavailable=ApodUnavailableError,
             bad_response=ApodBadResponseError,
             rate_limited=ApodRateLimitedError,
