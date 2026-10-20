@@ -9,6 +9,7 @@ import respx
 from app.clients.apod.nasa_api import NASA_API_URL, ApodApiClient
 from app.domain.apod import (
     ApodBadResponseError,
+    ApodNotFoundError,
     ApodRateLimitedError,
     ApodUnavailableError,
     MediaType,
@@ -92,7 +93,7 @@ async def test_rejects_entry_for_another_date(
     ("status", "body_fixture", "expected_error"),
     [
         pytest.param(
-            400, "nasa_api_error_400.json", ApodBadResponseError, id="date-out-of-range"
+            400, "nasa_api_error_400.json", ApodNotFoundError, id="date-out-of-range"
         ),
         pytest.param(
             403, "nasa_api_error_403.json", ApodBadResponseError, id="invalid-key"
