@@ -14,12 +14,21 @@ BETELGEUSE_IMAGE_URL = (
 
 EARTHSET_DATE = dt.date(2026, 4, 22)
 EARTHSET_VIDEO_URL = "https://www.youtube.com/embed/MT8tg5b3b8E?feature=oembed"
+LUNAR_FARSIDE_DATE = dt.date(2026, 10, 10)
 
 
 @pytest.fixture
 def betelgeuse(read_fixture: Callable[[str], str]) -> ApodEntry:
     return parse_article(
         read_fixture("article_image.html"), expected_date=BETELGEUSE_DATE
+    )
+
+
+@pytest.fixture
+def lunar_farside(read_fixture: Callable[[str], str]) -> ApodEntry:
+    """An article published on the new site, where labels end with a colon."""
+    return parse_article(
+        read_fixture("article_new_layout.html"), expected_date=LUNAR_FARSIDE_DATE
     )
 
 
@@ -90,3 +99,29 @@ def test_video_credit_has_no_label(earthset: ApodEntry) -> None:
     assert earthset.credit == (
         "NASA, Reid Wiseman Text: Keighley Rockcliffe (NASA GSFC, UMBC CSST, CRESST II)"
     )
+
+
+def test_parses_article_of_the_new_layout(lunar_farside: ApodEntry) -> None:
+    assert lunar_farside.date == LUNAR_FARSIDE_DATE
+    assert lunar_farside.title == "Lunar Farside"
+
+
+def test_parses_credit_of_the_new_layout(lunar_farside: ApodEntry) -> None:
+    assert lunar_farside.credit == (
+        "NASA / GSFC / Arizona State Univ. / Lunar Reconnaissance Orbiter"
+    )
+
+
+def test_explanation_of_the_new_layout_has_no_label(lunar_farside: ApodEntry) -> None:
+    assert lunar_farside.explanation.startswith(
+        "Tidally locked in synchronous rotation"
+    )
+    assert lunar_farside.explanation.endswith("form dark, smooth maria.")
+
+
+def test_explanation_drops_a_repeated_label(read_fixture: Callable[[str], str]) -> None:
+    entry = parse_article(
+        read_fixture("article_treble_clef.html"), expected_date=dt.date(2026, 10, 19)
+    )
+
+    assert entry.explanation.startswith("What is Treble Clef?")
