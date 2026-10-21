@@ -110,7 +110,7 @@ async def get_explanation(
 
 @router.get("/{date}/facts", responses=_GENERATED_RESPONSES)
 async def get_facts(date: dt.date, service: BriefServiceDep) -> FactsResponse:
-    """Return 3 to 5 interesting facts about the APOD's topic.
+    """Return interesting facts about the APOD's topic.
 
     Is generated on the first request and then pulled out from the database.
     """

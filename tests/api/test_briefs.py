@@ -184,6 +184,13 @@ async def test_returns_facts_for_date(
 
 
 @pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("/briefs/2020-01-01/explanation", id="explanation"),
+        pytest.param("/briefs/2020-01-01/facts", id="facts"),
+    ],
+)
+@pytest.mark.parametrize(
     ("error", "expected_status"),
     [
         pytest.param(LlmUnavailableError("LLM request failed"), 503, id="unavailable"),
@@ -193,12 +200,13 @@ async def test_returns_facts_for_date(
 async def test_maps_llm_errors_to_status(
     client: httpx.AsyncClient,
     use_fakes: UseFakes,
+    path: str,
     error: Exception,
     expected_status: int,
 ) -> None:
     use_fakes(FakeSource(), llm=FakeLlm(explanation=error, facts=error))
 
-    response = await client.get("/briefs/2020-01-01/explanation")
+    response = await client.get(path)
 
     assert response.status_code == expected_status
 

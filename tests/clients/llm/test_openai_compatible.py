@@ -1,5 +1,7 @@
 import datetime as dt
 import json
+from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -20,22 +22,19 @@ ENTRY = ApodEntry(
     media_type=MediaType.IMAGE,
     url="https://example.com/betelgeuse.jpg",
 )
+RECORDED_FACTS = json.loads(
+    (Path(__file__).parents[1] / "fixtures" / "ollama_facts.json").read_text(
+        encoding="utf-8"
+    )
+)
 
 
 def completion(content: str | None) -> dict[str, Any]:
-    """A minimal chat completion body as an OpenAI-compatible API returns it."""
+    """Changing real recorded Ollama completion."""
+    choice = RECORDED_FACTS["choices"][0]
     return {
-        "id": "chatcmpl-1",
-        "object": "chat.completion",
-        "created": 0,
-        "model": "test-model",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": content},
-                "finish_reason": "stop",
-            }
-        ],
+        **RECORDED_FACTS,
+        "choices": [{**choice, "message": {**choice["message"], "content": content}}],
     }
 
 
@@ -76,15 +75,21 @@ async def test_explain_grounds_the_model_in_the_apod_text(
 
 
 async def test_extract_facts_returns_facts(
-    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+    llm: OpenAICompatibleLlmClient,
+    respx_mock: respx.MockRouter,
+    read_fixture: Callable[[str], str],
 ) -> None:
-    facts = ["It is red.", "It is fading.", "It is 700 light years away."]
     respx_mock.post(COMPLETIONS_URL).respond(
-        200, json=completion(json.dumps({"facts": facts}))
+        200, text=read_fixture("ollama_facts.json")
     )
 
     assert await llm.extract_facts(ENTRY) == Facts(
-        ("It is red.", "It is fading.", "It is 700 light years away.")
+        (
+            "Betelgeuse is a red supergiant star in the constellation Orion.",
+            "Betelgeuse has a diameter about 1,000 times that of the Sun.",
+            "Betelgeuse is expected to go supernova at some point in the future.",
+            "Betelgeuse has a mass around 20 times that of the Sun.",
+        )
     )
 
 
@@ -223,3 +228,16 @@ async def test_error_without_provider_message(
         await llm.explain(ENTRY)
 
     assert str(error.value) == "LLM returned 502"
+
+
+async def test_extract_facts_asks_for_three_to_five_facts(
+    llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
+) -> None:
+    route = respx_mock.post(COMPLETIONS_URL).respond(
+        200, json=completion(json.dumps({"facts": ["A.", "B.", "C."]}))
+    )
+
+    await llm.extract_facts(ENTRY)
+
+    body = json.loads(route.calls.last.request.content)
+    assert "Return 3 to 5 facts." in body["messages"][0]["content"]

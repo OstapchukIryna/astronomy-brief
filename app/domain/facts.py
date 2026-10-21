@@ -24,15 +24,13 @@ class Facts:
             raise InvalidFactsError(
                 f"Expected {MIN_FACTS} to {MAX_FACTS} facts, got {count}"
             )
-        for item in self.items:
+        for number, item in enumerate(self.items, start=1):
             if not item or item != item.strip():
                 raise InvalidFactsError(
-                    f"Facts must be trimmed and non-empty: {item!r}"
+                    f"Fact {number} of {count} must be trimmed and non-empty"
                 )
         if len({item.casefold() for item in self.items}) != count:
-            raise InvalidFactsError(
-                f"Facts must be distinct, ignoring case: {self.items}"
-            )
+            raise InvalidFactsError("Facts must be distinct, ignoring case")
 
     @classmethod
     def from_candidates(cls, candidates: Iterable[str]) -> Self:

@@ -1,0 +1,25 @@
+{
+    "id": "chatcmpl-498",
+    "object": "chat.completion",
+    "created": 1792584080,
+    "model": "qwen2.5:7b",
+    "system_fingerprint": "fp_ollama",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "{ \"facts\": [\n\"Betelgeuse is a red supergiant star in the constellation Orion.\",\n\"Betelgeuse has a diameter about 1,000 times that of the Sun.\",\n\"Betelgeuse is expected to go supernova at some point in the future.\",\n\"Betelgeuse has a mass around 20 times that of the Sun.\"\n] }"
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 130,
+        "prompt_tokens_details": {
+            "cached_tokens": 0
+        },
+        "completion_tokens": 82,
+        "total_tokens": 212
+    }
+}

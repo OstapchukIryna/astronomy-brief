@@ -46,7 +46,7 @@ flowchart LR
         llm[LLM client]
     end
 
-    api -->|writes| svc
+    api -->|by date| svc
     api -->|history| views
     svc --> entries
     svc --> uow
@@ -172,7 +172,7 @@ app/
 ├── services/        # the actual logic and transactions
 ├── repositories/    # database queries and the unit of work
 ├── clients/         # NASA and LLM clients
-├── domain/          # core types, errors and interfaces
+├── domain/          # value objects, protocols, errors rules
 ├── models/          # SQLAlchemy models
 ├── schemas/         # Pydantic request/response schemas
 ├── prompts/         # prompt templates for LLM

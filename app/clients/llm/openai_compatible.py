@@ -27,7 +27,7 @@ class _Completion(BaseModel):
 
 
 class _FactsAnswer(BaseModel):
-    facts: list[str] = Field(min_length=1)
+    facts: list[str]
 
 
 class _ErrorInfo(BaseModel):

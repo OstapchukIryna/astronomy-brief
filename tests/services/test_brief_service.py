@@ -197,6 +197,7 @@ async def test_returns_stored_facts_without_calling_llm() -> None:
 async def test_generates_and_stores_missing_facts() -> None:
     uow = await uow_with_entry()
     llm = FakeLlm(facts=Facts(("It is red.", "It is fading.", "It is far.")))
+
     facts = await make_service(uow, llm=llm).get_facts(DATE)
 
     assert facts == Facts(("It is red.", "It is fading.", "It is far."))
@@ -209,7 +210,11 @@ async def test_generates_and_stores_missing_facts() -> None:
 
 async def test_stores_no_facts_when_llm_fails() -> None:
     uow = await uow_with_entry()
-    llm = FakeLlm(facts=LlmBadResponseError("LLM returned 2 distinct facts"))
+    llm = FakeLlm(
+        facts=LlmBadResponseError(
+            "LLM returned unusable facts: Expected 3 to 5 facts, got 2"
+        )
+    )
 
     with pytest.raises(LlmBadResponseError):
         await make_service(uow, llm=llm).get_facts(DATE)
@@ -221,7 +226,11 @@ async def test_stores_no_facts_when_llm_fails() -> None:
 
 async def test_generates_facts_after_a_failed_attempt() -> None:
     uow = await uow_with_entry()
-    failing = FakeLlm(facts=LlmBadResponseError("LLM returned 2 distinct facts"))
+    failing = FakeLlm(
+        facts=LlmBadResponseError(
+            "LLM returned unusable facts: Expected 3 to 5 facts, got 2"
+        )
+    )
     with pytest.raises(LlmBadResponseError):
         await make_service(uow, llm=failing).get_facts(DATE)
     working = FakeLlm(facts=Facts(("It is red.", "It is fading.", "It is far.")))

@@ -18,7 +18,7 @@ from app.domain.facts import Facts, InvalidFactsError
 def test_from_candidates_rejects_fewer_than_three_distinct(
     candidates: list[str],
 ) -> None:
-    with pytest.raises(InvalidFactsError):
+    with pytest.raises(InvalidFactsError, match="Expected 3 to 5 facts"):
         Facts.from_candidates(candidates)
 
 
@@ -116,10 +116,8 @@ def test_from_candidates_rejects_a_bare_string() -> None:
         Facts.from_candidates("abc")
 
 
-def test_strict_constructor_accepts_cleaned_facts() -> None:
-    facts = Facts.from_candidates([" A.", "a.", "B.", "C."])
-
-    assert Facts(facts.items) == facts
+def test_from_candidates_returns_facts_the_strict_constructor_accepts() -> None:
+    assert Facts.from_candidates([" A.", "a.", "B.", "C."]) == Facts(("A.", "B.", "C."))
 
 
 @pytest.mark.parametrize(
@@ -143,6 +141,8 @@ def test_accepts_facts_at_count_limits(items: tuple[str, ...]) -> None:
         pytest.param(("One.", "Two.", "Three.", ""), id="empty"),
         pytest.param(("One.", "Two.", "Three.", "   "), id="whitespace-only"),
         pytest.param((" One.", "Two.", "Three."), id="untrimmed"),
+        pytest.param(("One. ", "Two.", "Three."), id="untrimmed-trailing"),
+        pytest.param(("One.\n", "Two.", "Three."), id="untrimmed-newline"),
     ],
 )
 def test_rejects_facts_that_break_the_rule(items: tuple[str, ...]) -> None:
