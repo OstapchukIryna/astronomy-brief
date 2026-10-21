@@ -1,6 +1,7 @@
 from typing import Protocol
 
 from app.domain.apod import ApodEntry
+from app.domain.facts import Facts
 
 
 class LlmError(Exception):
@@ -18,4 +19,4 @@ class LlmBadResponseError(LlmError):
 class LlmClient(Protocol):
     async def explain(self, entry: ApodEntry) -> str: ...
 
-    async def extract_facts(self, entry: ApodEntry) -> list[str]: ...
+    async def extract_facts(self, entry: ApodEntry) -> Facts: ...

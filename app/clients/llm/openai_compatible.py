@@ -5,11 +5,10 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.clients.http import send
 from app.domain.apod import ApodEntry
+from app.domain.facts import Facts, InvalidFactsError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 from app.prompts import explanation, facts
 
-MIN_FACTS = 3
-MAX_FACTS = 5
 MAX_ERROR_DETAIL = 200
 
 
@@ -28,7 +27,7 @@ class _Completion(BaseModel):
 
 
 class _FactsAnswer(BaseModel):
-    facts: list[str] = Field(min_length=1)
+    facts: list[str]
 
 
 class _ErrorInfo(BaseModel):
@@ -67,8 +66,8 @@ class OpenAICompatibleLlmClient:
             raise LlmBadResponseError("LLM returned an empty explanation")
         return text
 
-    async def extract_facts(self, entry: ApodEntry) -> list[str]:
-        """Return 3 to 5 distinct interesting facts about the APOD's topic."""
+    async def extract_facts(self, entry: ApodEntry) -> Facts:
+        """Return interesting facts about the APOD's topic."""
         content = await self._complete(
             facts.SYSTEM,
             facts.user_message(entry.title, entry.explanation),
@@ -86,12 +85,12 @@ class OpenAICompatibleLlmClient:
             raise LlmBadResponseError(
                 "LLM returned facts in an unexpected format"
             ) from error
-        result = _distinct([fact.strip() for fact in answer.facts if fact.strip()])
-        if len(result) < MIN_FACTS:
+        try:
+            return Facts.from_candidates(answer.facts)
+        except InvalidFactsError as error:
             raise LlmBadResponseError(
-                f"LLM returned {len(result)} distinct facts, expected at least {MIN_FACTS}"
-            )
-        return result[:MAX_FACTS]
+                f"LLM returned unusable facts: {error}"
+            ) from error
 
     async def _complete(
         self,
@@ -130,18 +129,6 @@ class OpenAICompatibleLlmClient:
         if content is None:
             raise LlmBadResponseError("LLM returned no content")
         return content
-
-
-def _distinct(items: list[str]) -> list[str]:
-    """Drop exact repeats, ignoring case, and keep the original order."""
-    seen: set[str] = set()
-    result: list[str] = []
-    for item in items:
-        key = item.casefold()
-        if key not in seen:
-            seen.add(key)
-            result.append(item)
-    return result
 
 
 def _error_detail(response: httpx.Response) -> str:

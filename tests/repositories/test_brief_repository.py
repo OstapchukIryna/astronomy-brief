@@ -1,7 +1,11 @@
 from dataclasses import replace
 
+import pytest
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.facts import Facts, InvalidFactsError
+from app.models import BriefRecord
 from app.repositories.brief import SqlBriefRepository
 from tests.fakes import ENTRY
 
@@ -21,6 +25,7 @@ async def test_finds_inserted_entry_by_date(session: AsyncSession) -> None:
     assert brief is not None
     assert brief.entry == ENTRY
     assert brief.simple_explanation is None
+    assert brief.facts is None
 
 
 async def test_insert_if_absent_keeps_existing_brief(session: AsyncSession) -> None:
@@ -62,21 +67,36 @@ async def test_sets_facts_when_absent(session: AsyncSession) -> None:
     await briefs.insert_if_absent(ENTRY)
 
     await briefs.set_facts_if_absent(
-        ENTRY.date, ["It is red.", "It is fading.", "It is far."]
+        ENTRY.date, Facts(("It is red.", "It is fading.", "It is far."))
     )
 
     brief = await briefs.get_by_date(ENTRY.date)
     assert brief is not None
-    assert brief.facts == ["It is red.", "It is fading.", "It is far."]
+    assert brief.facts == Facts(("It is red.", "It is fading.", "It is far."))
 
 
 async def test_keeps_existing_facts(session: AsyncSession) -> None:
     briefs = SqlBriefRepository(session)
     await briefs.insert_if_absent(ENTRY)
-    await briefs.set_facts_if_absent(ENTRY.date, ["First."])
+    await briefs.set_facts_if_absent(ENTRY.date, Facts(("First.", "A.", "B.")))
 
-    await briefs.set_facts_if_absent(ENTRY.date, ["Second."])
+    await briefs.set_facts_if_absent(ENTRY.date, Facts(("Second.", "C.", "D.")))
 
     brief = await briefs.get_by_date(ENTRY.date)
     assert brief is not None
-    assert brief.facts == ["First."]
+    assert brief.facts == Facts(("First.", "A.", "B."))
+
+
+async def test_refuses_to_read_facts_that_break_the_rule(
+    session: AsyncSession,
+) -> None:
+    briefs = SqlBriefRepository(session)
+    await briefs.insert_if_absent(ENTRY)
+    await session.execute(
+        update(BriefRecord)
+        .where(BriefRecord.date == ENTRY.date)
+        .values(facts=["Only one."])
+    )
+
+    with pytest.raises(InvalidFactsError):
+        await briefs.get_by_date(ENTRY.date)

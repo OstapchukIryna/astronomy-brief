@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.apod import ApodEntry
 from app.domain.brief import Brief
+from app.domain.facts import Facts
 from app.models import BriefRecord
 
 
@@ -22,7 +23,7 @@ def _to_brief(record: BriefRecord) -> Brief:
             credit=record.credit,
         ),
         simple_explanation=record.simple_explanation,
-        facts=record.facts,
+        facts=Facts(tuple(record.facts)) if record.facts is not None else None,
     )
 
 
@@ -65,11 +66,11 @@ class SqlBriefRepository:
         )
         await self._session.execute(statement)
 
-    async def set_facts_if_absent(self, date: dt.date, facts: list[str]) -> None:
+    async def set_facts_if_absent(self, date: dt.date, facts: Facts) -> None:
         """Save the facts unless the brief already has them."""
         statement = (
             update(BriefRecord)
             .where(BriefRecord.date == date, BriefRecord.facts.is_(None))
-            .values(facts=facts)
+            .values(facts=list(facts.items))
         )
         await self._session.execute(statement)

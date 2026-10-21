@@ -3,6 +3,7 @@ from collections.abc import Awaitable, Callable
 
 from app.domain.apod import ApodEntry
 from app.domain.brief import Brief, BriefRepository
+from app.domain.facts import Facts
 from app.domain.llm import LlmClient
 from app.domain.unit_of_work import UnitOfWork
 from app.services.entries import EntryStore
@@ -30,7 +31,7 @@ class BriefService:
             save=lambda briefs, text: briefs.set_explanation_if_absent(date, text),
         )
 
-    async def get_facts(self, date: dt.date) -> list[str]:
+    async def get_facts(self, date: dt.date) -> Facts:
         """Return the facts for the date, generating and saving them."""
         return await self._generate_once(
             date,

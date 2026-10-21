@@ -38,19 +38,25 @@ flowchart LR
     subgraph app [FastAPI application]
         api[API routers<br/>input validation, HTTP errors]
         svc[Brief service<br/>business logic]
+        entries[EntryStore<br/>get or create an entry]
+        views[Views<br/>read-only queries]
         uow[Unit of work<br/>transactions]
         repo[Repositories]
-        apod[APOD source<br/>API/archive]
+        apod[APOD source<br/>API and articles]
         llm[LLM client]
     end
 
-    api --> svc
+    api -->|by date| svc
+    api -->|history| views
+    svc --> entries
     svc --> uow
-    uow --> repo
-    svc --> apod
+    entries --> uow
+    entries --> apod
     svc --> llm
+    uow --> repo
     repo --> db[(PostgreSQL)]
-    apod -->|HTTPS| nasa[[NASA:<br/>APOD API, APOD archive]]
+    views --> db
+    apod -->|HTTPS| nasa[[NASA:<br/>APOD API, science.nasa.gov]]
     llm -->|OpenAI-compatible API| model[[Ollama or OpenAI]]
 ```
 
@@ -64,9 +70,9 @@ NASA's official APOD API returns placeholder data for many dates. This app uses 
 
 ```mermaid
 flowchart LR
-    svc[BriefService] --> fb[FallbackApodSource]
-    fb -->|first| api[Official API client<br/>rejects placeholder data]
-    fb -->|second| art[Article client<br/>finds the day's article, parses it]
+    entries[EntryStore] --> fb[FallbackApodSource]
+    fb -->|first| rapi[Retries] --> api[Official API client<br/>rejects placeholder data]
+    fb -->|second| rart[Retries] --> art[Article client<br/>finds the day's article, parses it]
     api --> nasaapi[[api.nasa.gov]]
     art --> nasasci[[science.nasa.gov REST API]]
 ```
@@ -80,21 +86,24 @@ sequenceDiagram
     actor U as Client
     participant A as API
     participant S as BriefService
+    participant E as EntryStore
     participant R as BriefRepository
     participant N as APOD source
     participant L as LLM client
 
     U->>A: GET /briefs/{date}/explanation
     A->>S: get_explanation(date)
-    S->>R: get_by_date(date)
-    R-->>S: brief or None
+    S->>E: get_or_create(date)
+    E->>R: get_by_date(date)
+    R-->>E: brief or None
     alt brief not stored yet
-        Note over S,R: no transaction is held while NASA answers
-        S->>N: get_entry(date)
-        N-->>S: ApodEntry
-        S->>R: insert_if_absent(entry)
-        S->>R: get_by_date(date)
+        Note over E,R: no transaction is held while NASA answers
+        E->>N: get_entry(date)
+        N-->>E: ApodEntry
+        E->>R: insert_if_absent(entry)
+        E->>R: get_by_date(date)
     end
+    E-->>S: brief
     alt explanation not generated yet
         Note over S,R: no transaction is held while the LLM answers
         S->>L: explain(entry)
@@ -163,7 +172,7 @@ app/
 ├── services/        # the actual logic and transactions
 ├── repositories/    # database queries and the unit of work
 ├── clients/         # NASA and LLM clients
-├── domain/          # core types, errors and interfaces
+├── domain/          # value objects, protocols, errors rules
 ├── models/          # SQLAlchemy models
 ├── schemas/         # Pydantic request/response schemas
 ├── prompts/         # prompt templates for LLM

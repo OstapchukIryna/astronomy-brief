@@ -17,9 +17,10 @@ from app.domain.apod import (
     ApodSource,
     ApodUnavailableError,
 )
+from app.domain.facts import Facts
 from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
 from app.repositories.unit_of_work import SqlUnitOfWork
-from tests.fakes import ENTRY, FACTS, FakeLlm, FakeSource
+from tests.fakes import ENTRY, FakeLlm, FakeSource
 
 
 class UseFakes(Protocol):
@@ -168,14 +169,27 @@ async def test_returns_facts_for_date(
     client: httpx.AsyncClient,
     use_fakes: UseFakes,
 ) -> None:
-    use_fakes(FakeSource())
+    use_fakes(
+        FakeSource(),
+        llm=FakeLlm(facts=Facts(("It is red.", "It is fading.", "It is far."))),
+    )
 
     response = await client.get("/briefs/2020-01-01/facts")
 
     assert response.status_code == status.HTTP_200_OK
-    assert response.json() == {"date": "2020-01-01", "facts": FACTS}
+    assert response.json() == {
+        "date": "2020-01-01",
+        "facts": ["It is red.", "It is fading.", "It is far."],
+    }
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        pytest.param("/briefs/2020-01-01/explanation", id="explanation"),
+        pytest.param("/briefs/2020-01-01/facts", id="facts"),
+    ],
+)
 @pytest.mark.parametrize(
     ("error", "expected_status"),
     [
@@ -186,12 +200,13 @@ async def test_returns_facts_for_date(
 async def test_maps_llm_errors_to_status(
     client: httpx.AsyncClient,
     use_fakes: UseFakes,
+    path: str,
     error: Exception,
     expected_status: int,
 ) -> None:
     use_fakes(FakeSource(), llm=FakeLlm(explanation=error, facts=error))
 
-    response = await client.get("/briefs/2020-01-01/explanation")
+    response = await client.get(path)
 
     assert response.status_code == expected_status
 
