@@ -115,4 +115,4 @@ async def get_facts(date: dt.date, service: BriefServiceDep) -> FactsResponse:
     Is generated on the first request and then pulled out from the database.
     """
     facts = await service.get_facts(date)
-    return FactsResponse(date=date, facts=facts)
+    return FactsResponse(date=date, facts=list(facts.items))

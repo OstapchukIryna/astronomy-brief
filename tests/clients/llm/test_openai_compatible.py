@@ -8,6 +8,7 @@ import respx
 
 from app.clients.llm.openai_compatible import OpenAICompatibleLlmClient
 from app.domain.apod import ApodEntry, MediaType
+from app.domain.facts import Facts
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 
 BASE_URL = "http://llm.test/v1"
@@ -82,7 +83,9 @@ async def test_extract_facts_returns_facts(
         200, json=completion(json.dumps({"facts": facts}))
     )
 
-    assert await llm.extract_facts(ENTRY) == facts
+    assert await llm.extract_facts(ENTRY) == Facts(
+        ("It is red.", "It is fading.", "It is 700 light years away.")
+    )
 
 
 async def test_extract_facts_asks_for_json_schema(
@@ -99,30 +102,28 @@ async def test_extract_facts_asks_for_json_schema(
     assert body["response_format"]["type"] == "json_schema"
 
 
-async def test_extract_facts_drops_repeats(
+async def test_extract_facts_cleans_the_answer(
     llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
 ) -> None:
-    facts = ["It is red.", "It is fading.", "it is red.", "It is far."]
+    facts = ["  It is red. ", "", "It is fading.", "it is RED.", "It is far."]
     respx_mock.post(COMPLETIONS_URL).respond(
         200, json=completion(json.dumps({"facts": facts}))
     )
 
-    assert await llm.extract_facts(ENTRY) == [
-        "It is red.",
-        "It is fading.",
-        "It is far.",
-    ]
+    assert await llm.extract_facts(ENTRY) == Facts(
+        ("It is red.", "It is fading.", "It is far.")
+    )
 
 
 async def test_extract_facts_keeps_at_most_five(
     llm: OpenAICompatibleLlmClient, respx_mock: respx.MockRouter
 ) -> None:
-    facts = [f"Fact number {n}." for n in range(7)]
+    facts = ["A.", "B.", "C.", "D.", "E.", "F."]
     respx_mock.post(COMPLETIONS_URL).respond(
         200, json=completion(json.dumps({"facts": facts}))
     )
 
-    assert len(await llm.extract_facts(ENTRY)) == 5
+    assert await llm.extract_facts(ENTRY) == Facts(("A.", "B.", "C.", "D.", "E."))
 
 
 @pytest.mark.parametrize(
@@ -130,6 +131,8 @@ async def test_extract_facts_keeps_at_most_five(
     [
         pytest.param("not json", id="not-json"),
         pytest.param(json.dumps({"items": ["a", "b", "c"]}), id="wrong-shape"),
+        pytest.param(json.dumps({"facts": []}), id="empty-list"),
+        pytest.param(json.dumps({"facts": ["One.", "Two."]}), id="two-facts"),
         pytest.param(
             json.dumps({"facts": ["Same.", "same.", "Other."]}),
             id="too-few-after-repeats",

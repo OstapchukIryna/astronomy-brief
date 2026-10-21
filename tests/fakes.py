@@ -7,6 +7,7 @@ from typing import Self
 
 from app.domain.apod import ApodEntry, MediaType
 from app.domain.brief import Brief
+from app.domain.facts import Facts
 
 DATE = dt.date(2020, 1, 1)
 ENTRY = ApodEntry(
@@ -16,7 +17,7 @@ ENTRY = ApodEntry(
     media_type=MediaType.IMAGE,
     url="https://example.com/betelgeuse.jpg",
 )
-FACTS = ["It is red.", "It is fading.", "It is far."]
+FACTS = Facts(("It is red.", "It is fading.", "It is far."))
 
 
 class FakeSource:
@@ -39,10 +40,10 @@ class FakeLlm:
     def __init__(
         self,
         explanation: str | Exception = "A star is fading.",
-        facts: list[str] | Exception | None = None,
+        facts: Facts | Exception = FACTS,
     ) -> None:
         self._explanation = explanation
-        self._facts = facts if facts is not None else list(FACTS)
+        self._facts = facts
         self.explain_calls = 0
         self.facts_calls = 0
 
@@ -52,7 +53,7 @@ class FakeLlm:
             raise self._explanation
         return self._explanation
 
-    async def extract_facts(self, entry: ApodEntry) -> list[str]:
+    async def extract_facts(self, entry: ApodEntry) -> Facts:
         self.facts_calls += 1
         if isinstance(self._facts, Exception):
             raise self._facts
@@ -76,7 +77,7 @@ class FakeBriefRepository:
         if brief is not None and brief.simple_explanation is None:
             self._briefs[date] = replace(brief, simple_explanation=text)
 
-    async def set_facts_if_absent(self, date: dt.date, facts: list[str]) -> None:
+    async def set_facts_if_absent(self, date: dt.date, facts: Facts) -> None:
         brief = self._briefs.get(date)
         if brief is not None and brief.facts is None:
             self._briefs[date] = replace(brief, facts=facts)

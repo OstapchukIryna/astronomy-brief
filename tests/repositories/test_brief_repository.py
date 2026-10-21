@@ -2,6 +2,7 @@ from dataclasses import replace
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.facts import Facts
 from app.repositories.brief import SqlBriefRepository
 from tests.fakes import ENTRY
 
@@ -62,21 +63,21 @@ async def test_sets_facts_when_absent(session: AsyncSession) -> None:
     await briefs.insert_if_absent(ENTRY)
 
     await briefs.set_facts_if_absent(
-        ENTRY.date, ["It is red.", "It is fading.", "It is far."]
+        ENTRY.date, Facts(("It is red.", "It is fading.", "It is far."))
     )
 
     brief = await briefs.get_by_date(ENTRY.date)
     assert brief is not None
-    assert brief.facts == ["It is red.", "It is fading.", "It is far."]
+    assert brief.facts == Facts(("It is red.", "It is fading.", "It is far."))
 
 
 async def test_keeps_existing_facts(session: AsyncSession) -> None:
     briefs = SqlBriefRepository(session)
     await briefs.insert_if_absent(ENTRY)
-    await briefs.set_facts_if_absent(ENTRY.date, ["First."])
+    await briefs.set_facts_if_absent(ENTRY.date, Facts(("First.", "A.", "B.")))
 
-    await briefs.set_facts_if_absent(ENTRY.date, ["Second."])
+    await briefs.set_facts_if_absent(ENTRY.date, Facts(("Second.", "C.", "D.")))
 
     brief = await briefs.get_by_date(ENTRY.date)
     assert brief is not None
-    assert brief.facts == ["First."]
+    assert brief.facts == Facts(("First.", "A.", "B."))
