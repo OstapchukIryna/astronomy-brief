@@ -1,0 +1,25 @@
+{
+    "id": "chatcmpl-1",
+    "object": "chat.completion",
+    "created": 1792682140,
+    "model": "qwen2.5:7b",
+    "system_fingerprint": "fp_ollama",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "Betelgeuse is fading because it is going through a period of dimming, which is normal for a variable star like Betelgeuse. This dimming can be caused by changes in its atmosphere or the presence of dust clouds around the star."
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 117,
+        "prompt_tokens_details": {
+            "cached_tokens": 0
+        },
+        "completion_tokens": 52,
+        "total_tokens": 169
+    }
+}

@@ -64,6 +64,7 @@ def _build_llm(
             http=http,
             base_url=OPENAI_BASE_URL,
             api_key=settings.openai_api_key.get_secret_value(),
+            answer_max_tokens=settings.llm_answer_max_tokens,
             model=settings.llm_model,
         )
     # Else we return Ollama without key
@@ -72,4 +73,5 @@ def _build_llm(
         base_url=str(settings.ollama_base_url),
         api_key="ollama",
         model=settings.llm_model,
+        answer_max_tokens=settings.llm_answer_max_tokens,
     )
