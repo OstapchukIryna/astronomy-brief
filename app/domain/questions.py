@@ -14,7 +14,7 @@ class OffTopicQuestionError(ValueError):
     """The question is not about the picture of the day."""
 
 
-def has_forbidden_charachters(text: str) -> bool:
+def _has_forbidden_characters(text: str) -> bool:
     return any(
         unicodedata.category(char) == "Cc" and char not in ALLOWED_CONTROL_CHARACTERS
         for char in text
@@ -31,7 +31,7 @@ class Question:
         text = self.text.strip()
         if not MIN_QUESTION_LENGTH <= len(
             text
-        ) <= MAX_QUESTION_LENGTH or has_forbidden_charachters(text):
+        ) <= MAX_QUESTION_LENGTH or _has_forbidden_characters(text):
             raise InvalidQuestionError(
                 f"The question must be {MIN_QUESTION_LENGTH} to "
                 f"{MAX_QUESTION_LENGTH} characters long, without control characters."

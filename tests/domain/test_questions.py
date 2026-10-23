@@ -49,7 +49,7 @@ def test_counts_length_after_trimming() -> None:
     ],
 )
 def test_rejects_questions_that_break_the_rule(text: str) -> None:
-    with pytest.raises(InvalidQuestionError):
+    with pytest.raises(InvalidQuestionError, match="3 to 300 characters long"):
         Question(text)
 
 
