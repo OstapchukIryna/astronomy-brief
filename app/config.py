@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import HttpUrl, SecretStr, model_validator
+from pydantic import Field, HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     ollama_base_url: HttpUrl = HttpUrl("http://localhost:11434/v1")
     llm_timeout_seconds: float = 60.0
+    llm_answer_max_tokens: int = Field(default=300, gt=0)
 
     @model_validator(mode="after")
     def _require_openai_key(self) -> Self:

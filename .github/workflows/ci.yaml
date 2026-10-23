@@ -24,6 +24,10 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
     services:
       postgres:
         image: postgres:18-alpine
@@ -50,7 +54,14 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked
-      - run: uv run pytest -v --cov --cov-report=term --cov-report=xml
+      - run: uv run pytest -v --durations=10 --junitxml=test-report.xml --cov --cov-report=term --cov-report=xml
+      - name: Test report
+        if: ${{ !cancelled() }}
+        uses: dorny/test-reporter@v3
+        with:
+          name: Tests
+          path: test-report.xml
+          reporter: python-xunit
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

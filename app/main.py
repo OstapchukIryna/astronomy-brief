@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.errors import register_exception_handlers
-from app.api.routers import briefs, health
+from app.api.routers import briefs, health, questions
 from app.bootstrap import build_container
 from app.config import Settings, get_settings
 from app.logging import setup_logging
@@ -33,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(briefs.router)
+    app.include_router(questions.router)
     register_exception_handlers(app)
 
     return app

@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from app.domain.apod import ApodEntry
 from app.domain.brief import Brief, BriefRepository
 from app.domain.facts import Facts
-from app.domain.llm import LlmClient
+from app.domain.llm import BriefLlm
 from app.domain.unit_of_work import UnitOfWork
 from app.services.entries import EntryStore
 
@@ -12,7 +12,7 @@ from app.services.entries import EntryStore
 class BriefService:
     """Get APOD entries, generate their explanations and facts once, and list the stored history."""
 
-    def __init__(self, uow: UnitOfWork, entries: EntryStore, llm: LlmClient) -> None:
+    def __init__(self, uow: UnitOfWork, entries: EntryStore, llm: BriefLlm) -> None:
         self._uow = uow
         self._entries = entries
         self._llm = llm

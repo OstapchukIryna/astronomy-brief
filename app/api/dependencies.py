@@ -11,6 +11,7 @@ from app.domain.unit_of_work import UnitOfWork
 from app.repositories.unit_of_work import SqlUnitOfWork
 from app.services.brief import BriefService
 from app.services.entries import EntryStore
+from app.services.question import QuestionService
 
 
 def get_container(request: Request) -> Container:
@@ -56,6 +57,16 @@ def get_entry_store(
     source: Annotated[ApodSource, Depends(get_apod_source)],
 ) -> EntryStore:
     return EntryStore(uow, source)
+
+
+def get_question_service(
+    entries: Annotated[EntryStore, Depends(get_entry_store)],
+    llm: Annotated[LlmClient, Depends(get_llm)],
+) -> QuestionService:
+    return QuestionService(entries, llm)
+
+
+QuestionServiceDep = Annotated[QuestionService, Depends(get_question_service)]
 
 
 def get_brief_service(

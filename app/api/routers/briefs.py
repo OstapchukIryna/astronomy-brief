@@ -1,11 +1,18 @@
 import datetime as dt
-from typing import Any
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter
 
 from app import views
 from app.api.dependencies import BriefServiceDep, SessionFactoryDep
-from app.domain.history import HistoryFilter, PageRequest
+from app.api.errors import DATABASE_ERRORS, error_responses
+from app.domain.apod import (
+    ApodBadResponseError,
+    ApodNotFoundError,
+    ApodUnavailableError,
+)
+from app.domain.dates import InvalidApodDateError
+from app.domain.history import HistoryFilter, InvalidHistoryFilterError, PageRequest
+from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 from app.schemas.brief import (
     BriefResponse,
     BriefSummaryResponse,
@@ -13,59 +20,23 @@ from app.schemas.brief import (
     FactsResponse,
     HistoryResponse,
 )
-from app.schemas.error import ErrorResponse
 
 router = APIRouter(prefix="/briefs", tags=["briefs"])
 
-
-Responses = dict[int | str, dict[str, Any]]
-
-_APOD_RESPONSES: Responses = {
-    status.HTTP_400_BAD_REQUEST: {
-        "model": ErrorResponse,
-        "description": "The date is before 1995-06-16 or in the future",
-    },
-    status.HTTP_404_NOT_FOUND: {
-        "model": ErrorResponse,
-        "description": "There is no APOD for this date, or today's is not published yet",
-    },
-    status.HTTP_502_BAD_GATEWAY: {
-        "model": ErrorResponse,
-        "description": "NASA returned data we couldn't use",
-    },
-    status.HTTP_503_SERVICE_UNAVAILABLE: {
-        "model": ErrorResponse,
-        "description": "NASA or the database is unavailable, try again later",
-    },
-}
-
-_GENERATED_RESPONSES: Responses = {
-    **_APOD_RESPONSES,
-    status.HTTP_502_BAD_GATEWAY: {
-        "model": ErrorResponse,
-        "description": "NASA or the language model returned data we couldn't use",
-    },
-    status.HTTP_503_SERVICE_UNAVAILABLE: {
-        "model": ErrorResponse,
-        "description": "NASA or the language model is unavailable, try again later",
-    },
-}
+_HISTORY_ERRORS = (InvalidHistoryFilterError, *DATABASE_ERRORS)
+_ENTRY_ERRORS = (
+    InvalidApodDateError,
+    ApodNotFoundError,
+    ApodBadResponseError,
+    ApodUnavailableError,
+    *DATABASE_ERRORS,
+)
+_GENERATED_ERRORS = (*_ENTRY_ERRORS, LlmBadResponseError, LlmUnavailableError)
 
 DEFAULT_PAGE_SIZE = 20
 
-_HISTORY_RESPONSES: Responses = {
-    status.HTTP_400_BAD_REQUEST: {
-        "model": ErrorResponse,
-        "description": "The start date is after the end date, the keyword is not 3 to 100 characters long or contains control characters, or the page size is not 1 to 100",
-    },
-    status.HTTP_503_SERVICE_UNAVAILABLE: {
-        "model": ErrorResponse,
-        "description": "The database is unavailable, try again later",
-    },
-}
 
-
-@router.get("", responses=_HISTORY_RESPONSES)
+@router.get("", responses=error_responses(*_HISTORY_ERRORS))
 async def list_history(
     session_factory: SessionFactoryDep,
     date_from: dt.date | None = None,
@@ -89,14 +60,14 @@ async def list_history(
     )
 
 
-@router.get("/{date}", responses=_APOD_RESPONSES)
+@router.get("/{date}", responses=error_responses(*_ENTRY_ERRORS))
 async def get_brief(date: dt.date, service: BriefServiceDep) -> BriefResponse:
     """Return the APOD brief for the given date. The date must be between 1995-06-16 and today in US Eastern time."""
     entry = await service.get_entry(date)
     return BriefResponse.model_validate(entry)
 
 
-@router.get("/{date}/explanation", responses=_GENERATED_RESPONSES)
+@router.get("/{date}/explanation", responses=error_responses(*_GENERATED_ERRORS))
 async def get_explanation(
     date: dt.date, service: BriefServiceDep
 ) -> ExplanationResponse:
@@ -108,7 +79,7 @@ async def get_explanation(
     return ExplanationResponse(date=date, explanation=explanation)
 
 
-@router.get("/{date}/facts", responses=_GENERATED_RESPONSES)
+@router.get("/{date}/facts", responses=error_responses(*_GENERATED_ERRORS))
 async def get_facts(date: dt.date, service: BriefServiceDep) -> FactsResponse:
     """Return interesting facts about the APOD's topic.
 
