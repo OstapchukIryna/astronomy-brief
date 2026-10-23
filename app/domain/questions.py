@@ -10,6 +10,10 @@ class InvalidQuestionError(ValueError):
     """A question that breaks the length or the character rule."""
 
 
+class OffTopicQuestionError(ValueError):
+    """The question is not about the picture of the day."""
+
+
 def has_forbidden_charachters(text: str) -> bool:
     return any(
         unicodedata.category(char) == "Cc" and char not in ALLOWED_CONTROL_CHARACTERS
