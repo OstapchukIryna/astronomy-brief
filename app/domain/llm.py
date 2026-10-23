@@ -2,6 +2,7 @@ from typing import Protocol
 
 from app.domain.apod import ApodEntry
 from app.domain.facts import Facts
+from app.domain.questions import Question
 
 
 class LlmError(Exception):
@@ -20,3 +21,7 @@ class LlmClient(Protocol):
     async def explain(self, entry: ApodEntry) -> str: ...
 
     async def extract_facts(self, entry: ApodEntry) -> Facts: ...
+
+    async def is_on_topec(self, entry: ApodEntry, question: Question) -> bool: ...
+
+    async def answer(self, entry: ApodEntry, question: Question) -> str: ...

@@ -8,6 +8,7 @@ from typing import Self
 from app.domain.apod import ApodEntry, MediaType
 from app.domain.brief import Brief
 from app.domain.facts import Facts
+from app.domain.questions import Question
 
 DATE = dt.date(2020, 1, 1)
 ENTRY = ApodEntry(
@@ -41,11 +42,17 @@ class FakeLlm:
         self,
         explanation: str | Exception = "A star is fading.",
         facts: Facts | Exception = FACTS,
+        on_topic: bool | Exception = True,
+        answer: str | Exception = "It is losing brightness.",
     ) -> None:
         self._explanation = explanation
         self._facts = facts
+        self._on_topic = on_topic
+        self._answer = answer
         self.explain_calls = 0
         self.facts_calls = 0
+        self.classified: list[tuple[ApodEntry, Question]] = []
+        self.answered: list[tuple[ApodEntry, Question]] = []
 
     async def explain(self, entry: ApodEntry) -> str:
         self.explain_calls += 1
@@ -58,6 +65,18 @@ class FakeLlm:
         if isinstance(self._facts, Exception):
             raise self._facts
         return self._facts
+
+    async def is_on_topic(self, entry: ApodEntry, question: Question) -> bool:
+        self.classified.append((entry, question))
+        if isinstance(self._on_topic, Exception):
+            raise self._on_topic
+        return self._on_topic
+
+    async def answer(self, entry: ApodEntry, question: Question) -> str:
+        self.answered.append((entry, question))
+        if isinstance(self._answer, Exception):
+            raise self._answer
+        return self._answer
 
 
 class FakeBriefRepository:
