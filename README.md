@@ -33,7 +33,7 @@ FastAPI, async SQLAlchemy with PostgreSQL, Pydantic, Ollama (or any OpenAI-compa
 ```bash
 git clone https://github.com/OstapchukIryna/astronomy-brief.git
 cd astronomy-brief
-cp .env.example .env         # add your NASA key and the model name
+cp .env.example .env         # add your NASA key
 docker compose up -d
 ollama pull qwen2.5:7b
 uv sync
@@ -62,10 +62,10 @@ curl -X POST http://localhost:8000/questions \
 
 Rules about question and answer:
 - Questions are accepted in English only. A question in another language is refused with the off-topic message.
-- A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
+- A question is 3 to 300 characters long after trimming. Tabs and line breaks are allowed inside of the message, but other control characters are not.
 - It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
-- Answers use NASA's text and established knowledge where abot the topic.
-- Asks the model for up to 3 sentences.
+- Answers use NASA's text first and general knowledge where the text isn't enough.
+- The model is asked for up to 3 sentences in English.
 - Answers are not stored.
 
 ## Architecture
@@ -167,9 +167,9 @@ The LLM explanation and facts are also generated on the first request and saved,
 
 The parts don't depend on each other by design. That means, if Ollama is down, NASA's original data is still available. Also new saves never overwrite existing data. With that said, if two requests generate an explanation at the same time, the first one is saved, and both will return it.
 
-Model calls are not retried intentionally, and the call to NASA are wrapped with Tenacity decorator.
+Model calls are not retried intentionally, and NASA calls are retried with Tenacity.
 
-The classifier of a local model filters whether question is "on topic" and can misunderstand and refuse the question.
+The question classifier only filters out questions unrelated to astronomy. Asked whether a question was “on topic”, the local model refused questions built on a wrong assumption; now those get an answer that corrects them, at the cost of answering some borderline questions.
 
 ## Tests
 
