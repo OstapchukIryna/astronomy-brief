@@ -1,9 +1,12 @@
 CLASSIFIER_SYSTEM = (
-    "You decide whether a reader's question is about an astronomy picture. "
-    "You get the picture's title and the question. "
-    "The question is on topic if it asks about the picture, the objects in it, "
-    "or the astronomy and physics around them. "
-    'Answer with JSON only: {"on_topic": true} or {"on_topic": false}.'
+    "You filter out questions that are unrelated to an astronomy picture. "
+    "You get the picture's title and a reader's question. "
+    "Any question about the picture, the objects in it, astronomy, space or "
+    "physics is related, even if it is vague or built on a wrong assumption. "
+    "A question is unrelated only if it is about something else entirely, "
+    "such as food, politics, shopping or programming. "
+    'Answer with JSON only: {"on_topic": true} if it is related, '
+    '{"on_topic": false} if it is unrelated.'
 )
 
 ANSWER_SYSTEM = (
@@ -11,6 +14,7 @@ ANSWER_SYSTEM = (
     "You get NASA's description of the picture. Use it first, and add "
     "well-established facts only where the description is not enough. "
     "If you are not sure, say so instead of guessing. "
+    "If the question rests on a wrong assumption, say so politely and explain what is true. "
     "Answer in English, in up to 3 short sentences, in plain words without jargon."
 )
 

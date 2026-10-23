@@ -175,6 +175,7 @@ curl -X POST http://localhost:8000/questions \
 ```
 
 Rules about question and answer:
+- Questions are accepted in English only. A question in another language is refused with the off-topic message.
 - A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
 - It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
 - Answers use NASA's text and established knowledge where abot the topic.

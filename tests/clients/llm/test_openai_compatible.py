@@ -423,8 +423,7 @@ async def test_answer_reads_a_recorded_ollama_answer(
     )
 
     assert await llm.answer(ENTRY, QUESTION) == (
-        "Betelgeuse is fading because it is going through a period of dimming, "
-        "which is normal for a variable star like Betelgeuse. This dimming can be "
-        "caused by changes in its atmosphere or the presence of dust clouds "
-        "around the star."
+        "Betelgeuse is fading because it is going through a phase where it is "
+        "expanding and cooling, which makes it dimmer. This is a normal part of "
+        "a red giant star's life cycle."
     )
