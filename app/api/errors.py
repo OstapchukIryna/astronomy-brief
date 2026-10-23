@@ -15,6 +15,7 @@ from app.domain.apod import (
 from app.domain.dates import InvalidApodDateError
 from app.domain.history import InvalidHistoryFilterError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
+from app.domain.questions import InvalidQuestionError, OffTopicQuestionError
 from app.schemas.error import ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,14 @@ ERRORS: dict[type[Exception], ErrorSpec] = {
         "The start date is after the end date, the keyword is not 3 to 100 "
         "characters long or contains control characters, or the page size is "
         "not 1 to 100.",
+    ),
+    InvalidQuestionError: ErrorSpec(
+        status.HTTP_400_BAD_REQUEST,
+        "The question is not 3 to 300 characters long or contains control characters.",
+    ),
+    OffTopicQuestionError: ErrorSpec(
+        status.HTTP_400_BAD_REQUEST,
+        "The question is not about the picture of the day.",
     ),
     ApodNotFoundError: ErrorSpec(
         status.HTTP_404_NOT_FOUND,

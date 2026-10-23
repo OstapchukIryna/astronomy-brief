@@ -1,30 +1,23 @@
 import datetime as dt
 from dataclasses import replace
-from typing import Protocol, Self
+from typing import Self
 
 import httpx
 import pytest
 from fastapi import FastAPI, status
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.api.dependencies import get_container, get_session_factory, get_unit_of_work
-from app.bootstrap import Container
-from app.database import Database
+from app.api.dependencies import get_unit_of_work
 from app.domain.apod import (
     ApodBadResponseError,
     ApodNotFoundError,
-    ApodSource,
     ApodUnavailableError,
 )
 from app.domain.facts import Facts
-from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
+from app.domain.llm import LlmBadResponseError, LlmUnavailableError
 from app.repositories.unit_of_work import SqlUnitOfWork
+from tests.api.conftest import UseFakes
 from tests.fakes import ENTRY, FakeLlm, FakeSource
-
-
-class UseFakes(Protocol):
-    def __call__(self, source: ApodSource, llm: LlmClient | None = None) -> None: ...
 
 
 class BrokenUnitOfWork:
@@ -35,20 +28,6 @@ class BrokenUnitOfWork:
 
     async def __aexit__(self, *args: object) -> None:
         pass  # pragma: no cover
-
-
-@pytest.fixture
-def use_fakes(
-    app: FastAPI, session_factory: async_sessionmaker[AsyncSession], database: Database
-) -> UseFakes:
-    """Make the app use the test unit of work and the given APOD source."""
-    app.dependency_overrides[get_session_factory] = lambda: session_factory
-
-    def _use(source: ApodSource, llm: LlmClient | None = None) -> None:
-        container = Container(db=database, apod_source=source, llm=llm or FakeLlm())
-        app.dependency_overrides[get_container] = lambda: container
-
-    return _use
 
 
 async def store_briefs(uow: SqlUnitOfWork, *days: int) -> None:

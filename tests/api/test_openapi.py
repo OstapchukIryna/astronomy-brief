@@ -2,6 +2,7 @@ import pytest
 from fastapi import FastAPI
 
 ERROR_SCHEMA = {"$ref": "#/components/schemas/ErrorResponse"}
+VALIDATION_SCHEMA = {"$ref": "#/components/schemas/HTTPValidationError"}
 
 
 @pytest.mark.parametrize(
@@ -28,3 +29,20 @@ def test_documents_each_route_error_with_the_error_model(
     }
 
     assert documented_errors == dict.fromkeys(expected_statuses, ERROR_SCHEMA)
+
+
+def test_documents_the_question_errors(app: FastAPI) -> None:
+    responses = app.openapi()["paths"]["/questions"]["post"]["responses"]
+    documented_errors = {
+        code: response["content"]["application/json"]["schema"]
+        for code, response in responses.items()
+        if code != "200"
+    }
+
+    assert documented_errors == {
+        "400": ERROR_SCHEMA,
+        "404": ERROR_SCHEMA,
+        "422": VALIDATION_SCHEMA,
+        "502": ERROR_SCHEMA,
+        "503": ERROR_SCHEMA,
+    }
