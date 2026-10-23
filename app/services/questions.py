@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from app.domain.llm import LlmClient
+from app.domain.llm import QuestionLlm
 from app.domain.questions import OffTopicQuestionError, Question
 from app.services.entries import EntryStore
 
@@ -10,7 +10,7 @@ from app.services.entries import EntryStore
 class QuestionService:
     """Answer questions about a day's picture. Answers are neither stored, nor cached."""
 
-    def __init__(self, entries: EntryStore, llm: LlmClient) -> None:
+    def __init__(self, entries: EntryStore, llm: QuestionLlm) -> None:
         self._entries = entries
         self._llm = llm
 

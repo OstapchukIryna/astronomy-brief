@@ -17,11 +17,21 @@ class LlmBadResponseError(LlmError):
     """The LLM answered, but not with what asked for."""
 
 
-class LlmClient(Protocol):
+class BriefLlm(Protocol):
+    """What the brief service needs from a language model."""
+
     async def explain(self, entry: ApodEntry) -> str: ...
 
     async def extract_facts(self, entry: ApodEntry) -> Facts: ...
 
+
+class QuestionLlm(Protocol):
+    """What the question service needs from a language model."""
+
     async def is_on_topic(self, entry: ApodEntry, question: Question) -> bool: ...
 
     async def answer(self, entry: ApodEntry, question: Question) -> str: ...
+
+
+class LlmClient(BriefLlm, QuestionLlm, Protocol):
+    """A language model client that serves both services."""

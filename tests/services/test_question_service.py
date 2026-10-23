@@ -12,7 +12,7 @@ from app.domain.apod import (
 )
 from app.domain.brief import Brief
 from app.domain.dates import InvalidApodDateError
-from app.domain.llm import LlmBadResponseError, LlmClient, LlmUnavailableError
+from app.domain.llm import LlmBadResponseError, LlmUnavailableError, QuestionLlm
 from app.domain.questions import OffTopicQuestionError, Question
 from app.services.entries import EntryStore
 from app.services.questions import QuestionService
@@ -24,7 +24,7 @@ QUESTION = Question("Why is Betelgeuse fading?")
 def make_service(
     uow: FakeUnitOfWork | None = None,
     source: ApodSource | None = None,
-    llm: LlmClient | None = None,
+    llm: QuestionLlm | None = None,
 ) -> QuestionService:
     uow = uow or FakeUnitOfWork()
     return QuestionService(EntryStore(uow, source or FakeSource()), llm or FakeLlm())
