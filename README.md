@@ -19,7 +19,7 @@ This API takes a day's picture and builds a small brief around it. It takes the 
 | Get a day's APOD with image metadata and the original explanation | ✅ done |
 | Beginner-friendly explanation | ✅ done |
 | 3–5 key facts | ✅ done |
-| Follow-up questions about the topic | 🚧 planned |
+| Follow-up questions about the topic | ✅ done |
 | History of past briefs with filters | ✅ done |
 
 ## Tech stack
@@ -38,6 +38,7 @@ flowchart LR
     subgraph app [FastAPI application]
         api[API routers<br/>input validation, HTTP errors]
         svc[Brief service<br/>business logic]
+        qsvc[Question service<br/>classify and answer]
         entries[EntryStore<br/>get or create an entry]
         views[Views<br/>read-only queries]
         uow[Unit of work<br/>transactions]
@@ -52,7 +53,10 @@ flowchart LR
     svc --> uow
     entries --> uow
     entries --> apod
-    svc --> llm
+    api -->|questions| qsvc
+    qsvc --> entries
+    svc -->|BriefLlm| llm
+    qsvc -->|QuestionLlm| llm
     uow --> repo
     repo --> db[(PostgreSQL)]
     views --> db
@@ -152,6 +156,7 @@ uv run pytest
 | `GET` | `/briefs/{date}` | Returns the APOD for a date (`YYYY-MM-DD`) |
 | `GET` | `/briefs/{date}/explanation` | Returns a beginner-friendly explanation |
 | `GET` | `/briefs/{date}/facts` | Returns 3–5 key facts |
+| `POST` | `/questions` | Answers a question about a day's picture |
 
 ```bash
 curl http://localhost:8000/briefs/2020-01-01
@@ -161,6 +166,20 @@ curl "http://localhost:8000/briefs?date_from=2020-01-01&date_to=2020-01-31"
 curl "http://localhost:8000/briefs?keyword=betelgeus"
 ```
 
+### Questions
+
+```bash
+curl -X POST http://localhost:8000/questions \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2020-01-01", "question": "Why is Betelgeuse fading?"}'
+```
+
+Rules about question and answer:
+- A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
+- It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
+- Answers use NASA's text and established knowledge where abot the topic.
+- Answer is up to 3 sentences.
+- Answers are not stored.
 
 ## Project structure
 
