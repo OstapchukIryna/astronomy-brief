@@ -11,25 +11,69 @@ Every day NASA publishes an astronomy photo with a short explanation by an astro
 
 This API takes a day's picture and builds a small brief around it. It takes the original image and text, provides a simpler explanation written by an LLM, a few key facts, and a way to ask follow-up questions.
 
-## Features
-
-| Feature | Status |
-|---|---|
-| Health checks | ✅ done |
-| Get a day's APOD with image metadata and the original explanation | ✅ done |
-| Beginner-friendly explanation | ✅ done |
-| 3–5 key facts | ✅ done |
-| Follow-up questions about the topic | ✅ done |
-| History of past briefs with filters | ✅ done |
-
 ## Tech stack
 
-FastAPI, async SQLAlchemy with PostgreSQL, Pydantic, httpx, Ollama (or any OpenAI-compatible API), pytest.
+FastAPI, async SQLAlchemy with PostgreSQL, Pydantic, Ollama (or any OpenAI-compatible API), pytest.
 
+
+## Features
+
+| Method | Path | Returns |
+|---|---|---|
+| `GET` | `/briefs/{date}` | The picture for a date from 1995-06-16 to today (US Eastern time): title, image or video URL, credit and NASA's explanation |
+| `GET` | `/briefs/{date}/explanation` | NASA's text rewritten for readers without a science background, using only what the text says |
+| `GET` | `/briefs/{date}/facts` | 3 to 5 short facts about the topic |
+| `POST` | `/questions` | An answer of up to 3 sentences to a question about the day's picture |
+| `GET` | `/briefs` | Stored briefs, newest first, filtered by dates and a title keyword that tolerates typos |
+| `GET` | `/health` | The app is running |
+| `GET` | `/health/ready` | The app is running and the database answers |
+
+## Setup
+
+```bash
+git clone https://github.com/OstapchukIryna/astronomy-brief.git
+cd astronomy-brief
+cp .env.example .env         # add your NASA key and the model name
+docker compose up -d
+ollama pull qwen2.5:7b
+uv sync
+uv run alembic upgrade head
+uv run uvicorn app.main:create_app --factory --reload
+```
+
+Then open http://localhost:8000/docs.
+
+## Examples
+
+```bash
+curl http://localhost:8000/briefs/2026-10-10
+curl http://localhost:8000/briefs/2026-10-10/explanation
+curl http://localhost:8000/briefs/2026-10-10/facts
+curl "http://localhost:8000/briefs?date_from=2020-01-01&date_to=2020-01-31"
+curl "http://localhost:8000/briefs?keyword=betelgeus"   # finds "Betelgeuse"
+```
+### Questions
+
+```bash
+curl -X POST http://localhost:8000/questions \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2020-01-01", "question": "Why is Betelgeuse fading?"}'
+```
+
+Rules about question and answer:
+- Questions are accepted in English only. A question in another language is refused with the off-topic message.
+- A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
+- It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
+- Answers use NASA's text and established knowledge where abot the topic.
+- Asks the model for up to 3 sentences.
+- Answers are not stored.
 
 ## Architecture
 
 The code is split into separate layers.
+Routers deal only with HTTP and check the input types, while rules for the input are checked in the domain layer.
+The service layer contains the business logic.
+NASA and the LLM each have their own client. Each client converts what the outside API returns into the app's own types.
 
 ```mermaid
 flowchart LR
@@ -48,13 +92,13 @@ flowchart LR
     end
 
     api -->|by date| svc
+    api -->|questions| qsvc
     api -->|history| views
     svc --> entries
+    qsvc --> entries
     svc --> uow
     entries --> uow
     entries --> apod
-    api -->|questions| qsvc
-    qsvc --> entries
     svc -->|BriefLlm| llm
     qsvc -->|QuestionLlm| llm
     uow --> repo
@@ -64,13 +108,9 @@ flowchart LR
     llm -->|OpenAI-compatible API| model[[Ollama or OpenAI]]
 ```
 
-Routers deal only with HTTP and check the input types, while rules for the input are checked in the domain layer.
-The service layer contains the business logic.
-NASA and the LLM each have their own client. Each client converts what the outside API returns into the app's own types.
+### Two NASA sources
 
-### Two sources
-
-NASA's official APOD API returns placeholder data for many dates. This app uses two sources:
+NASA's official APOD API returns placeholder data for many recent dates. This app uses two sources:
 
 ```mermaid
 flowchart LR
@@ -81,9 +121,10 @@ flowchart LR
     art --> nasasci[[science.nasa.gov REST API]]
 ```
 
-### Lazy generation
+### Generated once, lazily
 
-Each part of a brief is generated lazily:
+The explanation and the facts are generated on their first request and stored in the database. During processing, no transaction stays open while NASA or the model answers.
+
 
 ```mermaid
 sequenceDiagram
@@ -118,26 +159,17 @@ sequenceDiagram
     S-->>A: stored explanation
     A-->>U: 200 JSON
 ```
+### Design decisions
 
 The first time a date is requested, the app fetches it from NASA and stores it.
+
 The LLM explanation and facts are also generated on the first request and saved, so the next request only reads from the database.
 
 The parts don't depend on each other by design. That means, if Ollama is down, NASA's original data is still available. Also new saves never overwrite existing data. With that said, if two requests generate an explanation at the same time, the first one is saved, and both will return it.
 
-## Setup
+Model calls are not retried intentionally, and the call to NASA are wrapped with Tenacity decorator.
 
-```bash
-git clone https://github.com/OstapchukIryna/astronomy-brief.git
-cd astronomy-brief
-cp .env.example .env         # add your NASA key and the model name
-docker compose up -d
-ollama pull qwen2.5:7b
-uv sync
-uv run alembic upgrade head
-uv run uvicorn app.main:create_app --factory --reload
-```
-
-Then open http://localhost:8000/docs.
+The classifier of a local model filters whether question is "on topic" and can misunderstand and refuse the question.
 
 ## Tests
 
@@ -155,58 +187,25 @@ uv run mutmut show <mutant>        # the change of one mutant
 uv run mutmut browse               # browse and rerun mutants
 ```
 
-## API
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | The app is running |
-| `GET` | `/health/ready` | The database is reachable |
-| `GET` | `/briefs` | Lists stored briefs, filtered by dates and a title keyword |
-| `GET` | `/briefs/{date}` | Returns the APOD for a date (`YYYY-MM-DD`) |
-| `GET` | `/briefs/{date}/explanation` | Returns a beginner-friendly explanation |
-| `GET` | `/briefs/{date}/facts` | Returns 3–5 key facts |
-| `POST` | `/questions` | Answers a question about a day's picture |
-
-```bash
-curl http://localhost:8000/briefs/2020-01-01
-curl http://localhost:8000/briefs/2020-01-01/explanation
-curl http://localhost:8000/briefs/2020-01-01/facts
-curl "http://localhost:8000/briefs?date_from=2020-01-01&date_to=2020-01-31"
-curl "http://localhost:8000/briefs?keyword=betelgeus"
-```
-
-### Questions
-
-```bash
-curl -X POST http://localhost:8000/questions \
-  -H "Content-Type: application/json" \
-  -d '{"date": "2020-01-01", "question": "Why is Betelgeuse fading?"}'
-```
-
-Rules about question and answer:
-- Questions are accepted in English only. A question in another language is refused with the off-topic message.
-- A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
-- It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
-- Answers use NASA's text and established knowledge where abot the topic.
-- Asks the model for up to 3 sentences.
-- Answers are not stored.
-
 ## Project structure
 
 ```
 app/
 ├── api/
-│   ├── routers/     # HTTP with request/response, status codes
-│   └── dependencies.py  # wiring dependencies into routers
-├── services/        # the actual logic and transactions
-├── repositories/    # database queries and the unit of work
-├── clients/         # NASA and LLM clients
-├── domain/          # value objects, protocols, errors rules
-├── models/          # SQLAlchemy models
-├── schemas/         # Pydantic request/response schemas
-├── prompts/         # prompt templates for LLM
-├── bootstrap.py     # builds the app's long-lived dependencies
-├── config.py        # settings from environment
-├── database.py      # engine and session factory
-└── main.py          # app factory
+│   ├── routers/          # HTTP with requests, responses, status codes
+│   ├── errors.py         # shared table of errors, statuses and messages
+│   └── dependencies.py   # wiring dependencies into routers
+├── services/             # use cases and transaction boundaries
+├── domain/               # value objects, rules, protocols, errors
+├── repositories/         # database write operations and the unit of work
+├── views.py              # read-only queries for the history
+├── clients/              # NASA and model clients
+├── models/               # SQLAlchemy models
+├── schemas/              # Pydantic request and response models
+├── prompts/              # prompts for the model
+├── bootstrap.py          # builds the long-lived dependencies
+├── config.py             # settings from the environment
+├── database.py           # engine and session factory
+└── main.py               # app factory
+migrations/               # Alembic migrations
 ```
