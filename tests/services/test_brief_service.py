@@ -124,7 +124,7 @@ async def test_returns_stored_explanation_without_calling_llm() -> None:
     text = await make_service(uow, llm=llm).get_explanation(DATE)
 
     assert text == "Stored explanation"
-    assert llm.explain_calls == 0
+    assert llm.explained == []
 
 
 async def test_generates_and_stores_missing_explanation() -> None:
@@ -191,7 +191,7 @@ async def test_returns_stored_facts_without_calling_llm() -> None:
     facts = await make_service(uow, llm=llm).get_facts(DATE)
 
     assert facts == Facts(("Stored fact.", "Second stored fact.", "Third stored fact."))
-    assert llm.facts_calls == 0
+    assert llm.extracted == []
 
 
 async def test_generates_and_stores_missing_facts() -> None:

@@ -3,7 +3,7 @@
 import datetime as dt
 
 from app.domain.llm import QuestionLlm
-from app.domain.questions import OffTopicQuestionError, Question
+from app.domain.question import OffTopicQuestionError, Question
 from app.services.entries import EntryStore
 
 

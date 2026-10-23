@@ -46,3 +46,7 @@ def test_documents_the_question_errors(app: FastAPI) -> None:
         "502": ERROR_SCHEMA,
         "503": ERROR_SCHEMA,
     }
+    assert (
+        responses["502"]["description"]
+        == "NASA returned data we couldn't use. The language model returned an answer we couldn't use."
+    )

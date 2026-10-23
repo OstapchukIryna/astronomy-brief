@@ -145,6 +145,15 @@ Then open http://localhost:8000/docs.
 docker compose exec db createdb -U astro astronomy_test
 uv run pytest
 ```
+Mutation testing runs on the small tests without database:
+
+```bash
+uv run mutmut run                  # every module in app/
+uv run mutmut run "app.domain.*"
+uv run mutmut results
+uv run mutmut show <mutant>        # the change of one mutant
+uv run mutmut browse               # browse and rerun mutants
+```
 
 ## API
 
@@ -179,7 +188,7 @@ Rules about question and answer:
 - A question is 3 to 300 characters long after trimming and the control characters are not allowed, except for line breaking.
 - It must be about the day's picture. If not, a classifier marks it as an off-topic question and returns a 400.
 - Answers use NASA's text and established knowledge where abot the topic.
-- Answer is up to 3 sentences.
+- Asks the model for up to 3 sentences.
 - Answers are not stored.
 
 ## Project structure

@@ -1,6 +1,6 @@
 import pytest
 
-from app.domain.questions import InvalidQuestionError, Question
+from app.domain.question import InvalidQuestionError, Question
 
 
 def test_trims_the_ends() -> None:
@@ -63,3 +63,11 @@ def test_rejects_questions_that_break_the_rule(text: str) -> None:
 )
 def test_keeps_tabs_and_line_breaks_inside(text: str) -> None:
     assert Question(text).text == text
+
+
+def test_trims_control_whitespace_at_the_ends() -> None:
+    assert Question("What is it?\x0b").text == "What is it?"
+
+
+def test_trims_unicode_spaces_at_the_ends() -> None:
+    assert Question("\u00a0What is it?\u2003").text == "What is it?"

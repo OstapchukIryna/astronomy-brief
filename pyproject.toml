@@ -67,4 +67,6 @@ pytest_add_cli_args_test_selection = [
     "tests/services",
     "tests/clients",
     "tests/test_config.py",
+    "tests/api/test_errors.py",
+    "tests/test_bootstrap.py",
 ]

@@ -8,7 +8,7 @@ from typing import Self
 from app.domain.apod import ApodEntry, MediaType
 from app.domain.brief import Brief
 from app.domain.facts import Facts
-from app.domain.questions import Question
+from app.domain.question import Question
 
 DATE = dt.date(2020, 1, 1)
 ENTRY = ApodEntry(
@@ -49,19 +49,19 @@ class FakeLlm:
         self._facts = facts
         self._on_topic = on_topic
         self._answer = answer
-        self.explain_calls = 0
-        self.facts_calls = 0
+        self.explained: list[ApodEntry] = []
+        self.extracted: list[ApodEntry] = []
         self.classified: list[tuple[ApodEntry, Question]] = []
         self.answered: list[tuple[ApodEntry, Question]] = []
 
     async def explain(self, entry: ApodEntry) -> str:
-        self.explain_calls += 1
+        self.explained.append(entry)
         if isinstance(self._explanation, Exception):
             raise self._explanation
         return self._explanation
 
     async def extract_facts(self, entry: ApodEntry) -> Facts:
-        self.facts_calls += 1
+        self.extracted.append(entry)
         if isinstance(self._facts, Exception):
             raise self._facts
         return self._facts

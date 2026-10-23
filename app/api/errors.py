@@ -15,7 +15,7 @@ from app.domain.apod import (
 from app.domain.dates import InvalidApodDateError
 from app.domain.history import InvalidHistoryFilterError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
-from app.domain.questions import InvalidQuestionError, OffTopicQuestionError
+from app.domain.question import InvalidQuestionError, OffTopicQuestionError
 from app.schemas.error import ErrorResponse
 
 logger = logging.getLogger(__name__)

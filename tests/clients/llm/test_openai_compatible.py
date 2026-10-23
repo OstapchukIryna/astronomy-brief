@@ -12,7 +12,8 @@ from app.clients.llm.openai_compatible import OpenAICompatibleLlmClient
 from app.domain.apod import ApodEntry, MediaType
 from app.domain.facts import Facts
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
-from app.domain.questions import Question
+from app.domain.question import Question
+from app.prompts import question
 
 BASE_URL = "http://llm.test/v1"
 COMPLETIONS_URL = f"{BASE_URL}/chat/completions"
@@ -277,10 +278,15 @@ async def test_is_on_topic_sends_only_the_title_and_the_question(
     await llm.is_on_topic(ENTRY, QUESTION)
 
     body = json.loads(route.calls.last.request.content)
-    user_message = body["messages"][-1]["content"]
-    assert ENTRY.title in user_message
-    assert QUESTION.text in user_message
-    assert ENTRY.explanation not in user_message
+    assert body["messages"] == [
+        {"role": "system", "content": question.CLASSIFIER_SYSTEM},
+        {
+            "role": "user",
+            "content": "Title: Betelgeuse Imagined\n\nQuestion:\nWhy is Betelgeuse fading?",
+        },
+    ]
+    assert body["response_format"]["type"] == "json_schema"
+    assert body["response_format"]["json_schema"]["name"] == "topic"
     schema = body["response_format"]["json_schema"]["schema"]
     assert schema["properties"]["on_topic"]["type"] == "boolean"
     assert body["temperature"] == 0
@@ -315,23 +321,54 @@ async def test_is_on_topic_rejects_answers_that_are_not_a_strict_boolean(
     ],
 )
 @pytest.mark.parametrize(
-    "status",
-    [pytest.param(400, id="bad-request"), pytest.param(503, id="server-error")],
+    ("make_response", "expected_error", "expected_message"),
+    [
+        pytest.param(
+            lambda: httpx.Response(
+                400,
+                json={"error": {"message": "Cannot answer: Why is Betelgeuse fading?"}},
+            ),
+            LlmBadResponseError,
+            "LLM returned 400",
+            id="bad-request",
+        ),
+        pytest.param(
+            lambda: httpx.Response(
+                503,
+                json={"error": {"message": "Cannot answer: Why is Betelgeuse fading?"}},
+            ),
+            LlmUnavailableError,
+            "LLM returned 503",
+            id="server-error",
+        ),
+        pytest.param(
+            lambda: httpx.ConnectTimeout("timed out"),
+            LlmUnavailableError,
+            "LLM failed: ConnectTimeout",
+            id="timeout",
+        ),
+        pytest.param(
+            lambda: httpx.Response(200, json={"choices": []}),
+            LlmBadResponseError,
+            "LLM response has unexpected format",
+            id="malformed",
+        ),
+    ],
 )
-async def test_question_errors_leave_out_the_provider_message(
+async def test_question_calls_map_failures_without_the_question(
     llm: OpenAICompatibleLlmClient,
     respx_mock: respx.MockRouter,
     ask: Callable[[OpenAICompatibleLlmClient], Awaitable[object]],
-    status: int,
+    make_response: Callable[[], httpx.Response | Exception],
+    expected_error: type[Exception],
+    expected_message: str,
 ) -> None:
-    route = respx_mock.post(COMPLETIONS_URL).respond(
-        status, json={"error": {"message": "Cannot answer: Why is Betelgeuse fading?"}}
-    )
+    route = respx_mock.post(COMPLETIONS_URL).mock(side_effect=[make_response()])
 
-    with pytest.raises((LlmBadResponseError, LlmUnavailableError)) as error:
+    with pytest.raises(expected_error) as error:
         await ask(llm)
 
-    assert str(error.value) == f"LLM returned {status}"
+    assert str(error.value) == expected_message
     assert route.call_count == 1
 
 
@@ -382,10 +419,14 @@ async def test_answer_sends_the_question_with_the_apod_text(
 
     body = json.loads(route.calls.last.request.content)
     system_message = body["messages"][0]["content"]
-    user_message = body["messages"][-1]["content"]
-    assert ENTRY.title in user_message
-    assert ENTRY.explanation in user_message
-    assert QUESTION.text in user_message
+    assert body["messages"] == [
+        {"role": "system", "content": question.ANSWER_SYSTEM},
+        {
+            "role": "user",
+            "content": "Title: Betelgeuse Imagined\n\nText:\nBetelgeuse is only half as bright as it used to be.\n\nQuestion:\nWhy is Betelgeuse fading?",
+        },
+    ]
+    assert body["temperature"] == 0.2
     assert "up to 3 short sentences" in system_message
     assert "English" in system_message
     assert body["max_tokens"] == 123

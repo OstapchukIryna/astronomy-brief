@@ -7,7 +7,7 @@ from pydantic import SecretStr
 
 from app.bootstrap import build_container
 from app.config import Settings
-from app.domain.questions import Question
+from app.domain.question import Question
 from tests.fakes import ENTRY
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"

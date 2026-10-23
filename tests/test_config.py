@@ -29,7 +29,8 @@ def test_ollama_provider_works_without_api_key() -> None:
     assert settings.openai_api_key is None
 
 
-def test_answer_max_tokens_defaults_to_300() -> None:
+def test_answer_max_tokens_defaults_to_300(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LLM_ANSWER_MAX_TOKENS", raising=False)
     settings = Settings(
         _env_file=None, database_url=DATABASE_URL, llm_model="test-model"
     )

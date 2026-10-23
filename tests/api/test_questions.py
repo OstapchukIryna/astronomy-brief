@@ -96,20 +96,23 @@ async def test_refuses_off_topic_question(
 
 
 @pytest.mark.parametrize(
-    "date",
+    ("date", "expected_detail"),
     [
-        pytest.param("1995-06-15", id="before-the-first-apod"),
-        pytest.param("2100-01-01", id="future"),
+        pytest.param(
+            "1995-06-15", "APOD starts on 1995-06-16", id="before-the-first-apod"
+        ),
+        pytest.param("2100-01-01", "There is no APOD for 2100-01-01 yet", id="future"),
     ],
 )
 async def test_rejects_a_date_without_an_apod(
-    client: httpx.AsyncClient, use_fakes: UseFakes, date: str
+    client: httpx.AsyncClient, use_fakes: UseFakes, date: str, expected_detail: str
 ) -> None:
     use_fakes(FakeSource(ENTRY))
 
     response = await ask(client, "Why is Betelgeuse fading?", date=date)
 
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json() == {"detail": expected_detail}
 
 
 async def test_answers_for_the_first_apod_date(
@@ -272,3 +275,5 @@ async def test_never_logs_the_question(
     caplog.set_level(logging.DEBUG)
 
     await ask(client, SENTINEL)
+
+    assert SENTINEL not in caplog.text

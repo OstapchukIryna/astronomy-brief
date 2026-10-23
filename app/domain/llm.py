@@ -2,7 +2,7 @@ from typing import Protocol
 
 from app.domain.apod import ApodEntry
 from app.domain.facts import Facts
-from app.domain.questions import Question
+from app.domain.question import Question
 
 
 class LlmError(Exception):
@@ -29,6 +29,8 @@ class QuestionLlm(Protocol):
     """What the question service needs from a language model."""
 
     async def is_on_topic(self, entry: ApodEntry, question: Question) -> bool: ...
+
+    """Return False only for questions unrelated to astronomy."""
 
     async def answer(self, entry: ApodEntry, question: Question) -> str: ...
 

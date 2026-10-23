@@ -12,10 +12,6 @@ concurrency:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      checks: write
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
@@ -28,6 +24,10 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      checks: write
     services:
       postgres:
         image: postgres:18-alpine

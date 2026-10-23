@@ -9,7 +9,7 @@ from app.domain.apod import (
 )
 from app.domain.dates import InvalidApodDateError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
-from app.domain.questions import InvalidQuestionError, OffTopicQuestionError, Question
+from app.domain.question import InvalidQuestionError, OffTopicQuestionError, Question
 from app.schemas.question import AnswerResponse, QuestionRequest
 
 router = APIRouter(prefix="/questions", tags=["questions"])

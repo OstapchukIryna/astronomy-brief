@@ -12,6 +12,7 @@ from app.domain.apod import (
 from app.domain.dates import InvalidApodDateError
 from app.domain.history import InvalidHistoryFilterError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
+from app.domain.question import InvalidQuestionError, OffTopicQuestionError
 
 
 def app_raising(error: Exception) -> FastAPI:
@@ -82,6 +83,20 @@ def app_raising(error: Exception) -> FastAPI:
             400,
             "The start date is after the end date",
             id="invalid-history-filter",
+        ),
+        pytest.param(
+            InvalidQuestionError(
+                "The question must be 3 to 300 characters long, without control characters."
+            ),
+            400,
+            "The question must be 3 to 300 characters long, without control characters.",
+            id="invalid-question",
+        ),
+        pytest.param(
+            OffTopicQuestionError("The question must be about the picture of the day."),
+            400,
+            "The question must be about the picture of the day.",
+            id="off-topic",
         ),
     ],
 )

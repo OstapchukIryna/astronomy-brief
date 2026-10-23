@@ -11,7 +11,7 @@ from app.domain.unit_of_work import UnitOfWork
 from app.repositories.unit_of_work import SqlUnitOfWork
 from app.services.brief import BriefService
 from app.services.entries import EntryStore
-from app.services.questions import QuestionService
+from app.services.question import QuestionService
 
 
 def get_container(request: Request) -> Container:

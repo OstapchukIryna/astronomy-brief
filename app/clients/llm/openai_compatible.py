@@ -7,8 +7,9 @@ from app.clients.http import send
 from app.domain.apod import ApodEntry
 from app.domain.facts import Facts, InvalidFactsError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError
-from app.domain.questions import Question
-from app.prompts import explanation, facts, questions
+from app.domain.question import Question
+from app.prompts import explanation, facts
+from app.prompts import question as question_prompts
 
 MAX_ERROR_DETAIL = 200
 CLASSIFIER_MAX_TOKENS = 20  # the answer is one boolean
@@ -104,8 +105,8 @@ class OpenAICompatibleLlmClient:
     async def is_on_topic(self, entry: ApodEntry, question: Question) -> bool:
         """Return whether the question is about the APOD by checking its title."""
         content = await self._complete(
-            questions.CLASSIFIER_SYSTEM,
-            questions.classifier_message(entry.title, question.text),
+            question_prompts.CLASSIFIER_SYSTEM,
+            question_prompts.classifier_message(entry.title, question.text),
             response_format={
                 "type": "json_schema",
                 "json_schema": {
@@ -127,8 +128,10 @@ class OpenAICompatibleLlmClient:
     async def answer(self, entry: ApodEntry, question: Question) -> str:
         """Answer the question from NASA's text and well-established knowledge."""
         content = await self._complete(
-            questions.ANSWER_SYSTEM,
-            questions.answer_message(entry.title, entry.explanation, question.text),
+            question_prompts.ANSWER_SYSTEM,
+            question_prompts.answer_message(
+                entry.title, entry.explanation, question.text
+            ),
             max_tokens=self._answer_max_tokens,
             provider_detail=False,
         )

@@ -13,9 +13,9 @@ from app.domain.apod import (
 from app.domain.brief import Brief
 from app.domain.dates import InvalidApodDateError
 from app.domain.llm import LlmBadResponseError, LlmUnavailableError, QuestionLlm
-from app.domain.questions import OffTopicQuestionError, Question
+from app.domain.question import OffTopicQuestionError, Question
 from app.services.entries import EntryStore
-from app.services.questions import QuestionService
+from app.services.question import QuestionService
 from tests.fakes import DATE, ENTRY, FACTS, FakeLlm, FakeSource, FakeUnitOfWork
 
 QUESTION = Question("Why is Betelgeuse fading?")
@@ -47,7 +47,9 @@ async def test_answers_an_on_topic_question() -> None:
 async def test_refuses_an_off_topic_question_without_paying_for_an_answer() -> None:
     llm = FakeLlm(on_topic=False)
 
-    with pytest.raises(OffTopicQuestionError):
+    with pytest.raises(
+        OffTopicQuestionError, match="must be about the picture of the day"
+    ):
         await make_service(await uow_store(ENTRY), llm=llm).ask(DATE, QUESTION)
 
     assert llm.answered == []
@@ -55,11 +57,13 @@ async def test_refuses_an_off_topic_question_without_paying_for_an_answer() -> N
 
 async def test_fetches_and_stores_a_missing_entry_but_not_the_answer() -> None:
     uow = FakeUnitOfWork()
-    source = FakeSource(ENTRY)
+    llm = FakeLlm(answer="It is losing brightness.")
 
-    await make_service(uow, source=source).ask(DATE, QUESTION)
+    answer = await make_service(uow, source=FakeSource(ENTRY), llm=llm).ask(
+        DATE, QUESTION
+    )
 
-    assert source.calls == 1
+    assert answer == "It is losing brightness."
     assert await uow.briefs.get_by_date(DATE) == Brief(entry=ENTRY)
 
 
@@ -163,7 +167,7 @@ async def test_answers_for_the_first_apod_date() -> None:
 
 
 class OutsideTransactionLlm(FakeLlm):
-    """Make the service calls the LLM inside a transaction."""
+    """Fails the test if the classifier or the answer is called inside a transaction."""
 
     def __init__(self, uow: FakeUnitOfWork) -> None:
         super().__init__()
